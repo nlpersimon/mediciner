@@ -17,7 +17,8 @@ def read_corpus(path_to_corpus_dir: str) -> Dict[int, List[str]]:
     return corpus
 
 def read_ents_table(path_to_ents_table: str) -> pd.DataFrame:
-    raise NotImplementedError
+    ents_table = pd.read_csv(path_to_ents_table)
+    return ents_table
 
 
 class BertDataset(torch.utils.data.Dataset):
