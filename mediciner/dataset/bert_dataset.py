@@ -1,12 +1,20 @@
 import torch
 import torch.nn as nn
 from typing import Dict, List, Tuple
+import os
 import pandas as pd
+import re
 
 
 
 def read_corpus(path_to_corpus_dir: str) -> Dict[int, List[str]]:
-    raise NotImplementedError
+    files = filter(lambda fn: fn[-4:] == '.txt', os.listdir(path_to_corpus_dir))
+    corpus = {}
+    for file in files:
+        article_id = int(re.findall('-(\d+).', file)[0])
+        with open(os.path.join(path_to_corpus_dir, file), 'r') as f:
+            corpus[article_id] = f.read().splitlines()
+    return corpus
 
 def read_ents_table(path_to_ents_table: str) -> pd.DataFrame:
     raise NotImplementedError
