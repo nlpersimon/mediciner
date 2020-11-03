@@ -9,7 +9,9 @@ class BertLightning(pl.LightningModule):
         self.bert_model = bert_model
 
     def forward(self, x):
-        raise NotImplementedError
+        input_ids, attention_mask = x
+        outputs = self.bert_model(input_ids=input_ids, attention_mask=attention_mask)
+        return outputs
 
     def training_step(self, batch, batch_idx):
         raise NotImplementedError
