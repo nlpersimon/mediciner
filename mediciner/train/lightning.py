@@ -1,5 +1,5 @@
 import pytorch_lightning as pl
-from transformers import BertForTokenClassification
+from transformers import BertForTokenClassification, AdamW
 
 
 
@@ -22,7 +22,15 @@ class BertLightning(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        raise NotImplementedError
+        no_decay = ('bias', 'gamma', 'beta')
+        optimizer_grouped_parameters = [
+            {'params': [p for n, p in self.bert_model.named_parameters() if not any(nd in n for nd in no_decay)],
+             'weight_decay_rate': 0.01},
+            {'params': [p for n, p in self.bert_model.named_parameters() if any(nd in n for nd in no_decay)],
+             'weight_decay_rate': 0.0}
+        ]
+        optimizer = AdamW(optimizer_grouped_parameters, lr=3e-5)
+        return optimizer
 
     def validation_step(self, batch, batch_idx):
         raise NotImplementedError
