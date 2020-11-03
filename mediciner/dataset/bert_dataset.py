@@ -5,7 +5,7 @@ from typing import Dict, List, Tuple
 import os
 import pandas as pd
 import re
-from .corpus_labeler import CorpusLabeler
+from .corpus_labeler import label_corpus, tag_to_label
 
 
 
@@ -42,12 +42,10 @@ class BertDataset(torch.utils.data.Dataset):
     def __init__(self, path_to_corpus_dir: str,
                        path_to_ents_table: str,
                        tokenizer: BertWordPieceTokenizer,
-                       corpus_labeler: CorpusLabeler,
                        max_input_len: int) -> None:
         self.corpus = read_corpus(path_to_corpus_dir)
         self.ents_table = read_ents_table(path_to_ents_table).set_index(['article_id', 'sentence_id'])
         self.tokenizer = tokenizer
-        self.corpus_labeler = corpus_labeler
         self.max_input_len = max_input_len
         self.input_ids, self.attention_mask, self.labels = self.convert_corpus_to_features()
     
@@ -86,8 +84,8 @@ class BertDataset(torch.utils.data.Dataset):
     def get_sentence_features(self, article_id: int, sentence_id: int, sentence: str) -> Tuple[List[int], List[int], List[int]]:
         encoding = self.tokenizer.encode(sentence)
         ent_spans = self.get_ent_spans(article_id, sentence_id)
-        labels = self.corpus_labeler.label_corpus(sentence, ent_spans)
-        adjusted_labels = adjust_labels_by_encoding(encoding, labels, self.corpus_labeler.tag_to_label['X'])
+        labels = label_corpus(sentence, ent_spans)
+        adjusted_labels = adjust_labels_by_encoding(encoding, labels, tag_to_label('X'))
         return (encoding.ids[1:-1][:self.max_input_len],
                 encoding.attention_mask[1:-1][:self.max_input_len],
                 adjusted_labels[:self.max_input_len])
@@ -106,8 +104,8 @@ class BertDataset(torch.utils.data.Dataset):
                      labels: List[int]) -> Tuple[List[int], List[int], List[int]]:
         padding_len = self.max_input_len - len(input_ids)
         cls_id, sep_id, pad_id = [self.tokenizer.token_to_id(token) for token in ('[CLS]', '[SEP]', '[PAD]')]
-        special_token_mask, special_token_label = 1, self.corpus_labeler.tag_to_label['O']
-        pad_mask, pad_label = 0, self.corpus_labeler.tag_to_label['O']
+        special_token_mask, special_token_label = 1, tag_to_label('O')
+        pad_mask, pad_label = 0, tag_to_label('O')
         padded_input_ids = [cls_id] + input_ids + [sep_id] + [pad_id] * padding_len 
         padded_att_mask = [special_token_mask] + attention_mask + [special_token_mask] + [pad_mask] * padding_len
         padded_labels = [special_token_label] + labels + [special_token_label] + [pad_label] * padding_len
