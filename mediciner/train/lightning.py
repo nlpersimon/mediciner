@@ -1,10 +1,12 @@
 import pytorch_lightning as pl
+from transformers import BertForTokenClassification
 
 
 
 class BertLightning(pl.LightningModule):
-    def __init__(self, bert_model):
-        raise NotImplementedError
+    def __init__(self, bert_model: BertForTokenClassification):
+        super().__init__()
+        self.bert_model = bert_model
 
     def forward(self, x):
         raise NotImplementedError
