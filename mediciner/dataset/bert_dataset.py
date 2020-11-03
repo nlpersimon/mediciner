@@ -87,7 +87,7 @@ class BertDataset(torch.utils.data.Dataset):
         encoding = self.tokenizer.encode(sentence)
         ent_spans = self.get_ent_spans(article_id, sentence_id)
         labels = self.corpus_labeler.label_corpus(sentence, ent_spans)
-        adjusted_labels = adjust_labels_by_encoding(encoding, labels, 1)
+        adjusted_labels = adjust_labels_by_encoding(encoding, labels, self.corpus_labeler.tag_to_label['X'])
         return (encoding.ids[1:-1][:self.max_input_len],
                 encoding.attention_mask[1:-1][:self.max_input_len],
                 adjusted_labels[:self.max_input_len])
