@@ -94,7 +94,7 @@ class BertDataset(torch.utils.data.Dataset):
         try:
             ent_spans = [(row.start_position, row.end_position, row.entity_type)
                          for row in self.ents_table.loc[(article_id, sentence_id)].itertuples()]
-        except:
+        except KeyError:
             ent_spans = []
         return ent_spans
     
