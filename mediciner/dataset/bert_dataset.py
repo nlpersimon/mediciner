@@ -106,10 +106,11 @@ class BertDataset(torch.utils.data.Dataset):
                      labels: List[int]) -> Tuple[List[int], List[int], List[int]]:
         padding_len = self.max_input_len - len(input_ids)
         cls_id, sep_id, pad_id = [self.tokenizer.token_to_id(token) for token in ('[CLS]', '[SEP]', '[PAD]')]
-        outside_id = self.corpus_labeler.tag_to_label['O']
+        special_token_mask, special_token_label = 1, self.corpus_labeler.tag_to_label['O']
+        pad_mask, pad_label = 0, self.corpus_labeler.tag_to_label['O']
         padded_input_ids = [cls_id] + input_ids + [sep_id] + [pad_id] * padding_len 
-        padded_att_mask = [1] + attention_mask + [1] + [0] * padding_len
-        padded_labels = [outside_id] + labels + [outside_id] + [outside_id] * padding_len
+        padded_att_mask = [special_token_mask] + attention_mask + [special_token_mask] + [pad_mask] * padding_len
+        padded_labels = [special_token_label] + labels + [special_token_label] + [pad_label] * padding_len
         return (padded_input_ids, padded_att_mask, padded_labels)
 
     def __getitem__(self, idx):
