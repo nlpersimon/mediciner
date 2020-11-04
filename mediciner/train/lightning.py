@@ -1,6 +1,7 @@
 import pytorch_lightning as pl
 from transformers import BertForTokenClassification, AdamW
-import seqeval as se
+from seqeval.metrics import classification_report
+from seqeval.scheme import IOB2
 from ..dataset.corpus_labeler import tag_to_label, label_to_tag
 
 
@@ -63,9 +64,9 @@ class BertLightning(pl.LightningModule):
         for step_true, step_pred in validation_step_outputs:
             true_tags += step_true
             pred_tags += step_pred
-        entity_type_metrics = se.metrics.classification_report(true_tags,
-                                                               pred_tags,
-                                                               mode='strict',
-                                                               scheme=se.scheme.IOB2,
-                                                               output_dict=True)
+        entity_type_metrics = classification_report(true_tags,
+                                                    pred_tags,
+                                                    mode='strict',
+                                                    scheme=IOB2,
+                                                    output_dict=True)
         return entity_type_metrics
