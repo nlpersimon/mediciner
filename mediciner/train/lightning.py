@@ -1,5 +1,7 @@
 import pytorch_lightning as pl
 from transformers import BertForTokenClassification, AdamW
+import seqeval as se
+from ..dataset.corpus_labeler import tag_to_label, label_to_tag
 
 
 
@@ -8,6 +10,8 @@ class BertLightning(pl.LightningModule):
         super().__init__()
         self.bert_model = bert_model
         self.use_logger = False
+        self._subword_label = tag_to_label('X')
+        self._outside_label = tag_to_label('O')
 
     def forward(self, x):
         input_ids, attention_mask = x
@@ -33,7 +37,35 @@ class BertLightning(pl.LightningModule):
         return optimizer
 
     def validation_step(self, batch, batch_idx):
-        raise NotImplementedError
+        input_ids, attention_mask, labels = batch
+        outputs = self((input_ids, attention_mask))
+        pred_labels = outputs['logits'].argmax(dim=2)
+        true_tags, pred_tags = [], []
+        for true, pred, att_mask in zip(labels, pred_labels, attention_mask):
+            select_bool = (att_mask == 1) & (true != self._subword_label)
+            pred[pred == self._subword_label] = self._outside_label
+            true_tags.append([label_to_tag(int(label)) for label in true[select_bool]])
+            pred_tags.append([label_to_tag(int(label)) for label in pred[select_bool]])
+        return (true_tags, pred_tags)
 
     def validation_epoch_end(self, validation_step_outputs):
-        raise NotImplementedError
+        entity_type_metrics = self.compute_entity_type_metrics(validation_step_outputs)
+        for ent_type, metrics in entity_type_metrics.items():
+            self.logger.experiment.add_scalars(ent_type,
+                                               {'precision': metrics['precision'],
+                                                'recall': metrics['recall'],
+                                                'f1-score': metrics['f1-score']},
+                                               self.current_epoch)
+        return
+    
+    def compute_entity_type_metrics(self, validation_step_outputs):
+        true_tags, pred_tags = [], []
+        for step_true, step_pred in validation_step_outputs:
+            true_tags += step_true
+            pred_tags += step_pred
+        entity_type_metrics = se.metrics.classification_report(true_tags,
+                                                               pred_tags,
+                                                               mode='strict',
+                                                               scheme=se.scheme.IOB2,
+                                                               output_dict=True)
+        return entity_type_metrics
