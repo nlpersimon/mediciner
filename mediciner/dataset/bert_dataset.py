@@ -41,7 +41,7 @@ class BertDataset(torch.utils.data.Dataset):
             pack_labels: List[int] = []
             for sentence_id, sentence in enumerate(sentences):
                 sent_input_ids, sent_att_mask, sent_labels = self.get_sentence_features(article_id, sentence_id, sentence)
-                if (len(pack_input_ids) + len(sent_input_ids)) >= self.max_input_len:
+                if (len(pack_input_ids) + len(sent_input_ids)) > self.max_input_len:
                     add_features()
                     pack_input_ids, pack_att_mask, pack_labels = [], [], []
                 pack_input_ids.extend(sent_input_ids)
@@ -50,7 +50,7 @@ class BertDataset(torch.utils.data.Dataset):
             if pack_input_ids:
                 add_features()
         features = (torch.tensor(input_ids, dtype=torch.long),
-                    torch.tensor(attention_mask, dtype=torch.uint8),
+                    torch.tensor(attention_mask, dtype=torch.float),
                     torch.tensor(labels, dtype=torch.long))
         return features
 
