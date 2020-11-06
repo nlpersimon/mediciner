@@ -59,6 +59,7 @@ def adjust_pred_tags(pred_tags: List[str]) -> List[str]:
 class Entity:
     start: int
     end: int
+    text: str
     type: str
 
 
@@ -79,8 +80,8 @@ class BertExtractor(object):
                            for pred_labels, text, encoding in zip(pred_labels_batch, texts, encodings)]
         pred_tags_batch = [adjust_pred_tags(pred_tags)
                            for pred_tags in pred_tags_batch]
-        entities = [[Entity(start, end + 1, ent_type) for ent_type, start, end in get_entities(pred_tags)]
-                    for pred_tags in pred_tags_batch]
+        entities = [[Entity(start, end + 1, text[start:(end + 1)], ent_type) for ent_type, start, end in get_entities(pred_tags)]
+                    for text, pred_tags in zip(texts, pred_tags_batch)]
         return entities
 
     def predict_labels(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> List[torch.Tensor]:
