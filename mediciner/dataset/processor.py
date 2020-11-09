@@ -18,6 +18,14 @@ class Example:
     labels: Union[None, List[int]]=None
 
 
+@dataclass
+class Feature:
+    id: str
+    input_ids: List[int]
+    attention_mask: List[int]
+    labels: Union[None, List[int]]=None
+
+
 def get_ent_spans(ents_table, article_id: int, sentence_id: int) -> List:
         try:
             ent_spans = [(row.start_position, row.end_position, row.entity_type)
