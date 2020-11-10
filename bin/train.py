@@ -25,6 +25,7 @@ import random
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
 from mediciner.dataset.bert_dataset import BertDataset
+from mediciner.dataset.processor import BertProcessor
 from mediciner.dataset.corpus_labeler import TAG_TO_LABEL
 from mediciner.train.lightning import BertLightning
 
@@ -85,10 +86,11 @@ def main():
 
     model_name = str(args['--bert-name'])
     tokenizer = BertWordPieceTokenizer(f'vocab/{model_name}-vocab.txt')
+    processor = BertProcessor(510, tokenizer)
     bert_dataset = BertDataset(str(args['--path-to-corpus-dir']),
                                str(args['--path-to-ents-table']),
-                               tokenizer,
-                               510)
+                               processor,
+                               'train')
     train_dataloader, val_dataloader = prepare_dataloader(bert_dataset, tokenizer, args)
     
 
