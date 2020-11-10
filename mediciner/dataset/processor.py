@@ -4,8 +4,8 @@ import tqdm
 from typing import List, Union, Tuple, Dict
 import pandas as pd
 from .bert_dataset import read_corpus, read_ents_table
-from .corpus_labeler import label_corpus
-
+from .corpus_labeler import label_corpus, tag_to_label
+from .utils import adjust_labels_by_encoding
 
 
 
@@ -45,11 +45,32 @@ class BertProcessor(object):
                                    set_type: str='default') -> List[Example]:
         examples = []
         for article_id, article in tqdm.tqdm(corpus.items(),
-                                             desc='convert corpus to examples'):
+                                             desc=f'convert {set_type} corpus to {set_type} examples'):
             dataset_id = f'{set_type}-{article_id}'
             article_examples = self.convert_article_to_examples(article, dataset_id, ents_table)
             examples.extend(article_examples)
         return examples
+    
+    def convert_corpus_to_features(self, corpus: Dict[int, str],
+                                   ents_table: Union[pd.DataFrame, None]=None,
+                                   set_type: str='default') -> List[Feature]:
+        examples = self.convert_corpus_to_examples(corpus, ents_table, set_type)
+        features = [self.convert_example_to_feature(example)
+                    for example in tqdm.tqdm(examples, desc=f'convert {set_type} examples to {set_type} features')]
+        return features
+    
+    def convert_example_to_feature(self, example: Example) -> Feature:
+        encoding = self.tokenizer.encode(example.content)
+        labels = None
+        if example.labels is not None:
+            labels = adjust_labels_by_encoding(encoding, example.labels, tag_to_label('X'))
+            # add the labels for [CLS] and [SEP]
+            labels = [tag_to_label('O')] + labels + [tag_to_label('O')]
+        assert len(encoding.ids) == len(encoding.attention_mask)
+        if labels is not None:
+            assert len(encoding.ids) == len(labels)
+        feature = Feature(example.id, encoding.ids, encoding.attention_mask, labels)
+        return feature
     
     def convert_article_to_examples(self, article: List[str],
                                     dataset_id: str,
