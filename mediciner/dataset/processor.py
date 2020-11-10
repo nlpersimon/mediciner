@@ -36,9 +36,10 @@ def get_ent_spans(ents_table, article_id: int, sentence_id: int) -> List:
 
 
 class BertProcessor(object):
-    def __init__(self, max_input_len: int, tokenizer: BertWordPieceTokenizer) -> None:
+    def __init__(self, max_input_len: int, tokenizer: BertWordPieceTokenizer, mode: str='multi-sents') -> None:
         self.max_input_len = max_input_len
         self.tokenizer = tokenizer
+        self.mode = mode
 
     def convert_corpus_to_features(self, corpus: Dict[int, List[str]],
                                    ents_table: Union[pd.DataFrame, None]=None,
@@ -79,7 +80,10 @@ class BertProcessor(object):
         start, examples = 0, []
         _, article_id = dataset_id.split('-')
         while sentences_with_id:
-            sentences, clipped_sent_spans = self.collect_sentences_and_clip_spans(sentences_with_id)
+            if self.mode == 'multi-sents':
+                sentences, clipped_sent_spans = self.collect_sentences_and_clip_spans(sentences_with_id)
+            else:
+                sentences, clipped_sent_spans = self.fetch_sentence_and_clip_span(sentences_with_id)
             clipped_sents_labels = None
             if ents_table is not None:
                 clipped_sents_labels = []
@@ -98,8 +102,7 @@ class BertProcessor(object):
         hold_len, sentences, clip_spans = 0, [], []
         while hold_len < self.max_input_len and sentences_with_id:
             sent_id, sentence = sentences_with_id[0]
-            encoding = self.tokenizer.encode(sentence)
-            clipped_offsets = encoding.offsets[1:-1][:self.max_input_len]
+            clipped_offsets = self.get_clipped_offsets(sentence)
             n_tokens = len(clipped_offsets)
             if (n_tokens + hold_len) > self.max_input_len:
                 break
@@ -109,3 +112,16 @@ class BertProcessor(object):
             clip_spans.append((clip_start, clip_end))
             hold_len += n_tokens
         return (sentences, clip_spans)
+    
+    def get_clipped_offsets(self, sentence: str) -> List[Tuple[int, int]]:
+        encoding = self.tokenizer.encode(sentence)
+        clipped_offsets = encoding.offsets[1:-1][:self.max_input_len]
+        return clipped_offsets
+    
+    def fetch_sentence_and_clip_span(self, sentences_with_id: List[Tuple[int, str]]) -> Tuple[List[Tuple[int, str]],
+                                                                                              List[Tuple[int, int]]]:
+        sent_id, sentence = sentences_with_id[0]
+        clipped_offsets = self.get_clipped_offsets(sentence)
+        (clip_start, _), (_, clip_end) = clipped_offsets[0], clipped_offsets[-1]
+        sentences_with_id.pop(0)
+        return ([(sent_id, sentence)], [(clip_start, clip_end)])
