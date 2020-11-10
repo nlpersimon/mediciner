@@ -26,7 +26,8 @@ ENTITY_TYPES = (
     'education',
     'money',
     'contact',
-    'organization'
+    'organization',
+    'others'
 )
 TAG_TO_LABEL = construct_TAG_TO_LABEL(ENTITY_TYPES)
 LABEL_TO_TAG = {label: tag for tag, label in TAG_TO_LABEL.items()}
