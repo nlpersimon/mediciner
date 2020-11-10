@@ -10,9 +10,11 @@ Options:
     --bert-name=<str>                       name of bert model you want to fine-tune [default: bert-base-chinese]
     --gpu=<int>                             use GPU [default: -1]
     --validate                              validate during training
+    --mode=<str>                            multi-sents or uni-sent [default: multi-sents]
     --ideal-batch-size=<int>                batch size that you want to use to update the model [default: 32]
     --actual-batch-size=<int>               batch size that your gpu or memory can hold, need to be smaller than --ideal-batch-size [default: 8]
     --max-epochs=<int>                      max number of epochs [default: 20]
+    --max-input-len=<int>                   max length of input sequence [default: 510]
     --seed=<int>                            random seed to sample typos and sentences [default: 1]
 """
 from docopt import docopt
@@ -86,7 +88,7 @@ def main():
 
     model_name = str(args['--bert-name'])
     tokenizer = BertWordPieceTokenizer(f'vocab/{model_name}-vocab.txt')
-    processor = BertProcessor(510, tokenizer)
+    processor = BertProcessor(int(args['--max-input-len']), tokenizer, str(args['--mode']))
     bert_dataset = BertDataset(str(args['--path-to-corpus-dir']),
                                str(args['--path-to-ents-table']),
                                processor,
