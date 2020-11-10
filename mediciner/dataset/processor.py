@@ -39,8 +39,16 @@ class BertProcessor(object):
     def __init__(self, max_input_len: int, tokenizer: BertWordPieceTokenizer) -> None:
         self.max_input_len = max_input_len
         self.tokenizer = tokenizer
+
+    def convert_corpus_to_features(self, corpus: Dict[int, List[str]],
+                                   ents_table: Union[pd.DataFrame, None]=None,
+                                   set_type: str='default') -> List[Feature]:
+        examples = self.convert_corpus_to_examples(corpus, ents_table, set_type)
+        features = [self.convert_example_to_feature(example)
+                    for example in tqdm.tqdm(examples, desc=f'convert {set_type} examples to {set_type} features')]
+        return features
     
-    def convert_corpus_to_examples(self, corpus: Dict[int, str],
+    def convert_corpus_to_examples(self, corpus: Dict[int, List[str]],
                                    ents_table: Union[pd.DataFrame, None]=None,
                                    set_type: str='default') -> List[Example]:
         examples = []
@@ -50,14 +58,6 @@ class BertProcessor(object):
             article_examples = self.convert_article_to_examples(article, dataset_id, ents_table)
             examples.extend(article_examples)
         return examples
-    
-    def convert_corpus_to_features(self, corpus: Dict[int, str],
-                                   ents_table: Union[pd.DataFrame, None]=None,
-                                   set_type: str='default') -> List[Feature]:
-        examples = self.convert_corpus_to_examples(corpus, ents_table, set_type)
-        features = [self.convert_example_to_feature(example)
-                    for example in tqdm.tqdm(examples, desc=f'convert {set_type} examples to {set_type} features')]
-        return features
     
     def convert_example_to_feature(self, example: Example) -> Feature:
         encoding = self.tokenizer.encode(example.content)
