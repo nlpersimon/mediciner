@@ -68,6 +68,7 @@ class BertExtractor(object):
                        tokenizer: BertWordPieceTokenizer,
                        max_input_len: int) -> None:
         self.bert_model = bert_model
+        self.bert_model.eval()
         self.tokenizer = tokenizer
         self.padding_id = self.tokenizer.token_to_id('[PAD]')
         self.max_input_len = max_input_len
@@ -85,7 +86,8 @@ class BertExtractor(object):
         return entities
 
     def predict_labels(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> List[torch.Tensor]:
-        outputs = self.bert_model(input_ids, attention_mask)
+        with torch.no_grad():
+            outputs = self.bert_model(input_ids, attention_mask)
         pred_labels = outputs['logits'].argmax(dim=2)
         pred_labels = unpad_labels(pred_labels, attention_mask)
         return pred_labels
