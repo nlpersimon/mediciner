@@ -3,7 +3,6 @@ from tokenizers import BertWordPieceTokenizer
 import tqdm
 from typing import List, Union, Tuple, Dict
 import pandas as pd
-from .bert_dataset import read_corpus, read_ents_table
 from .corpus_labeler import label_corpus, tag_to_label
 from .utils import adjust_labels_by_encoding
 
