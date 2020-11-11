@@ -66,9 +66,12 @@ class Entity:
 class BertExtractor(object):
     def __init__(self, bert_model: BertForTokenClassification,
                        tokenizer: BertWordPieceTokenizer,
-                       max_input_len: int) -> None:
+                       max_input_len: int,
+                       device: torch.device=torch.device('cpu')) -> None:
+        self.device = device
         self.bert_model = bert_model
         self.bert_model.eval()
+        self.bert_model.to(device)
         self.tokenizer = tokenizer
         self.padding_id = self.tokenizer.token_to_id('[PAD]')
         self.max_input_len = max_input_len
@@ -76,7 +79,7 @@ class BertExtractor(object):
     def extract_entities(self, texts: List[str]) -> List[List[Entity]]:
         encodings = [self.tokenizer.encode(text) for text in texts]
         input_ids, attention_mask = encodings_to_features(encodings, self.padding_id, self.max_input_len)
-        pred_labels_batch = self.predict_labels(input_ids, attention_mask)
+        pred_labels_batch = self.predict_labels(input_ids.to(self.device), attention_mask.to(self.device))
         pred_tags_batch = [translate_labels_to_tags(pred_labels, len(text), encoding.offsets)
                            for pred_labels, text, encoding in zip(pred_labels_batch, texts, encodings)]
         pred_tags_batch = [adjust_pred_tags(pred_tags)
@@ -88,6 +91,7 @@ class BertExtractor(object):
     def predict_labels(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> List[torch.Tensor]:
         with torch.no_grad():
             outputs = self.bert_model(input_ids, attention_mask)
-        pred_labels = outputs['logits'].argmax(dim=2)
+        pred_labels = outputs['logits'].argmax(dim=2).to('cpu')
+        torch.cuda.empty_cache()
         pred_labels = unpad_labels(pred_labels, attention_mask)
         return pred_labels
