@@ -4,9 +4,9 @@ Usage:
 
 Options:
     -h --help                               show this screen.
-    --path-to-corpus-dir=<dir>              path to the raw data to generate typo examples
-    --path-to-ents-table=<file>             path to the confusion set that indicates characters and their easily-misused characters
-    --path-to-saving-model=<file>           path to the fine-tuned model should be save
+    --path-to-corpus-dir=<dir>              path to the corpus directory
+    --path-to-ents-table=<file>             path to the entities table for the corpus
+    --path-to-saving-model=<file>           path to the fine-tuned model should be saved
     --bert-name=<str>                       name of bert model you want to fine-tune [default: bert-base-chinese]
     --gpu=<int>                             use GPU [default: -1]
     --validate                              validate during training
