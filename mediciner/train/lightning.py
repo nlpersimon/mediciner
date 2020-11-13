@@ -1,5 +1,7 @@
 import pytorch_lightning as pl
 from transformers import BertForTokenClassification, AdamW
+from torch_optimizer import RAdam
+from adabelief_pytorch import AdaBelief
 from seqeval.metrics import classification_report
 from seqeval.scheme import IOB2
 from ..dataset.corpus_labeler import tag_to_label, label_to_tag
@@ -34,7 +36,14 @@ class BertLightning(pl.LightningModule):
             {'params': [p for n, p in self.bert_model.named_parameters() if any(nd in n for nd in no_decay)],
              'weight_decay': 0.0}
         ]
-        optimizer = AdamW(optimizer_grouped_parameters, lr=3e-5)
+        #optimizer = AdamW(optimizer_grouped_parameters, lr=3e-5)
+        #optimizer = RAdam(optimizer_grouped_parameters, lr=3e-5)
+        optimizer = AdaBelief(optimizer_grouped_parameters,
+                              lr=3e-5,
+                              eps=1e-16,
+                              betas=(0.9,0.999),
+                              weight_decouple=True,
+                              rectify=True)
         return optimizer
 
     def validation_step(self, batch, batch_idx):
