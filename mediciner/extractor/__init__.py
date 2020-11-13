@@ -1,0 +1,1 @@
+from .bert_extractor import Entity, BertExtractor
