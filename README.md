@@ -1,4 +1,6 @@
-# MediciNER
+<h1 align="center">
+<p> MediciNER
+</h1>
 
 # Installation
 建議在 virtual environment 下執行安裝。  
