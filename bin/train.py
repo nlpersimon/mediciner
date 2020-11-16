@@ -1,12 +1,13 @@
 """
 Usage:
-    train.py --path-to-corpus-dir=<dir> --path-to-ents-table=<file> --path-to-saving-model=<file> [options]
+    train.py --path-to-corpus-dir=<dir> --path-to-ents-table=<file> --path-to-saving-model=<file> --path-to-vocab=<file> [options]
 
 Options:
     -h --help                               show this screen.
     --path-to-corpus-dir=<dir>              path to the corpus directory
     --path-to-ents-table=<file>             path to the entities table for the corpus
     --path-to-saving-model=<file>           path to the fine-tuned model should be saved
+    --path-to-vocab=<file>                  path to the vocabulary for tokenizer
     --bert-name=<str>                       name of bert model you want to fine-tune [default: bert-base-chinese]
     --gpu=<int>                             use GPU [default: -1]
     --validate                              validate during training
@@ -87,7 +88,7 @@ def main():
     pl.seed_everything(1)
 
     model_name = str(args['--bert-name'])
-    tokenizer = BertWordPieceTokenizer(f'vocab/{model_name}-vocab.txt')
+    tokenizer = BertWordPieceTokenizer(str(args['--path-to-vocab']))
     processor = BertProcessor(int(args['--max-input-len']), tokenizer, str(args['--mode']))
     bert_dataset = BertDataset(str(args['--path-to-corpus-dir']),
                                str(args['--path-to-ents-table']),
