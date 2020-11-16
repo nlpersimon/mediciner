@@ -85,7 +85,7 @@ def prepare_trainer(args: dict) -> pl.Trainer:
 def main():
     args = docopt(__doc__)
 
-    pl.seed_everything(1)
+    pl.seed_everything(int(args['--seed']))
 
     model_name = str(args['--bert-name'])
     tokenizer = BertWordPieceTokenizer(str(args['--path-to-vocab']))
