@@ -16,6 +16,9 @@ Options:
     --actual-batch-size=<int>               batch size that your gpu or memory can hold, need to be smaller than --ideal-batch-size [default: 8]
     --max-epochs=<int>                      max number of epochs [default: 20]
     --max-input-len=<int>                   max length of input sequence [default: 510]
+    --optimizer=<str>                       optimizer to train the model [default: AdaBelief]
+    --learning-rate=<float>                 learning rate for optimizer [default: 3e-5]
+    --weight-decay=<float>                  weight decay rate for updating parameters [default: 0.0]
     --seed=<int>                            random seed to sample typos and sentences [default: 1]
 """
 from docopt import docopt
@@ -25,6 +28,7 @@ from tokenizers import BertWordPieceTokenizer
 from transformers import BertForTokenClassification
 from typing import Tuple, List, Union
 import random
+import os
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
 from mediciner.dataset.bert_dataset import BertDataset
@@ -66,6 +70,19 @@ def get_train_val_indices(indices: List[int], train_fraction: float) -> Tuple[Li
     train_indices, val_indices = indices[:n_train_samples], indices[n_train_samples:]
     return (train_indices, val_indices)
 
+def collect_hparams(args: dict) -> dict:
+    hparams = {
+        'mode': str(args['--mode']),
+        'pretrained-model': str(args['--bert-name']),
+        'max-input-len': int(args['--max-input-len']),
+        'batch-size': int(args['--ideal-batch-size']),
+        'max-epochs': int(args['--max-epochs']),
+        'optimizer': str(args['--optimizer']),
+        'learning-rate': float(args['--learning-rate']),
+        'weight-decay': float(args['--weight-decay']),
+    }
+    return hparams
+
 def prepare_trainer(args: dict) -> pl.Trainer:
     gpu_usage = [int(args['--gpu'])] if int(args['--gpu']) > -1 else 0
     *_, saving_model_name = str(args['--path-to-saving-model']).split('/')
@@ -100,14 +117,21 @@ def main():
     bert_model = BertForTokenClassification.from_pretrained(model_name,
                                                             return_dict=True,
                                                             num_labels=len(TAG_TO_LABEL))
-    bert_lightning = BertLightning(bert_model, use_logger=True)
+    hparams = collect_hparams(args)
+    bert_lightning = BertLightning(bert_model, hparams, use_logger=True)
 
     trainer = prepare_trainer(args)
+    
+    print('hyper parameters:')
+    print(hparams)
     
     trainer.fit(bert_lightning, train_dataloader, val_dataloader)
 
     bert_lightning.bert_model.save_pretrained(str(args['--path-to-saving-model']))
 
+    with open(os.path.join(str(args['--path-to-saving-model']), 'hparams.txt'), 'w') as f:
+        for hparam, value in hparams.items():
+            f.write(f'{hparam}: {value}\n')
     return
 
 

@@ -9,10 +9,11 @@ from ..dataset.corpus_labeler import tag_to_label, label_to_tag
 
 
 class BertLightning(pl.LightningModule):
-    def __init__(self, bert_model: BertForTokenClassification, use_logger: bool = False) -> None:
+    def __init__(self, bert_model: BertForTokenClassification, hparams: dict, use_logger: bool = False) -> None:
         super().__init__()
         self.bert_model = bert_model
         self.use_logger = False
+        self.hparams = hparams
         self._subword_label = tag_to_label('X')
         self._outside_label = tag_to_label('O')
 
@@ -32,18 +33,28 @@ class BertLightning(pl.LightningModule):
         no_decay = ('bias', 'gamma', 'beta')
         optimizer_grouped_parameters = [
             {'params': [p for n, p in self.bert_model.named_parameters() if not any(nd in n for nd in no_decay)],
-             'weight_decay': 0.0},
+             'weight_decay': self.hparams['weight-decay']},
             {'params': [p for n, p in self.bert_model.named_parameters() if any(nd in n for nd in no_decay)],
              'weight_decay': 0.0}
         ]
-        #optimizer = AdamW(optimizer_grouped_parameters, lr=3e-5)
-        #optimizer = RAdam(optimizer_grouped_parameters, lr=3e-5)
-        optimizer = AdaBelief(optimizer_grouped_parameters,
-                              lr=3e-5,
-                              eps=1e-16,
-                              betas=(0.9,0.999),
-                              weight_decouple=True,
-                              rectify=True)
+        optimizer_ops = {
+            'AdamW': AdamW,
+            'RAdam': RAdam,
+            'AdaBelief': AdaBelief
+        }
+        optimizer_constructor = optimizer_ops[self.hparams['optimizer']]
+        if self.hparams['optimizer'] == 'AdaBelief':
+            optimizer = optimizer_constructor(
+                optimizer_grouped_parameters,
+                lr=self.hparams['learning-rate'],
+                eps=1e-16,
+                betas=(0.9,0.999),
+                weight_decouple=True,
+                rectify=True)
+        else:
+            optimizer = optimizer_constructor(optimizer_grouped_parameters, lr=self.hparams['learning_rate'])
+        if self.use_logger:
+            self.logger.experiment.add_hparams(hparams_dict=self.hparams)
         return optimizer
 
     def validation_step(self, batch, batch_idx):
