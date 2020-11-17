@@ -142,3 +142,5 @@ data/
 vocab/
 model/
 lightning_logs/
+garbage/
+predictions/
