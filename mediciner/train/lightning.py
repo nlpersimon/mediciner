@@ -52,7 +52,7 @@ class BertLightning(pl.LightningModule):
                 weight_decouple=True,
                 rectify=True)
         else:
-            optimizer = optimizer_constructor(optimizer_grouped_parameters, lr=self.hparams['learning_rate'])
+            optimizer = optimizer_constructor(optimizer_grouped_parameters, lr=self.hparams['learning-rate'])
         if self.use_logger:
             self.logger.experiment.add_hparams(hparams_dict=self.hparams)
         return optimizer
