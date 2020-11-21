@@ -1,6 +1,8 @@
 import pytorch_lightning as pl
 from transformers import BertForTokenClassification, AdamW
 from torch_optimizer import RAdam
+import torch
+import torch.nn.functional as F
 from adabelief_pytorch import AdaBelief
 from seqeval.metrics import classification_report
 from seqeval.scheme import IOB2
@@ -24,8 +26,19 @@ class BertLightning(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         input_ids, attention_mask, labels = batch
-        outputs = self.bert_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
-        loss = outputs['loss']
+        outputs = self.bert_model(input_ids=input_ids, attention_mask=attention_mask)
+        logits = outputs['logits']
+        # 把原始程式碼計算 loss 的部分拉出來做是為了 assign ignore_index 給 cross_entropy
+        # 這樣 window format 就可以直接在 context sentence 的部分將 label 設為 tag_to_label('P')
+        # 從而避免計算 context sentences 的 loss
+        # Only keep active parts of the loss
+        active_loss = attention_mask.view(-1) == 1
+        active_logits = logits.view(-1, self.bert_model.num_labels)
+        # ignore context labels
+        active_labels = torch.where(
+            active_loss, labels.view(-1), torch.tensor(tag_to_label('P')).type_as(labels)
+        )
+        loss = F.cross_entropy(active_logits, active_labels, ignore_index=tag_to_label('P'))
         self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=self.use_logger)
         return loss
 
