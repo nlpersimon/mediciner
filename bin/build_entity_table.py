@@ -17,7 +17,7 @@ from docopt import docopt
 from transformers import BertForTokenClassification
 from tokenizers import BertWordPieceTokenizer
 import torch
-from mediciner.dataset.processor import BertProcessor
+from mediciner.dataset.processor import BertMultiSentProcessor, BertUniSentProcessor
 from mediciner.dataset.utils import read_corpus
 from mediciner.extractor.bert_extractor import BertExtractor
 from mediciner.utils import build_ents_table
@@ -29,15 +29,22 @@ from mediciner.utils import build_ents_table
 
 def main():
     args = docopt(__doc__)
+
+    processors = {
+        'multi-sents': BertMultiSentProcessor,
+        'uni-sent': BertUniSentProcessor
+    }
+
     tokenizer = BertWordPieceTokenizer(str(args['--path-to-vocab']))
     max_input_len = int(args['--max-input-len'])
-    sent_processor = BertProcessor(max_input_len, tokenizer, mode=str(args['--mode']))
+    processor_constructor = processors[str(args['--mode'])]
+    processor = processor_constructor(max_input_len, tokenizer)
     bert_model = BertForTokenClassification.from_pretrained(str(args['--path-to-model-dir']))
     device_no = int(args['--gpu'])
     device = torch.device(f'cuda:{device_no}') if device_no > -1 else torch.device('cpu')
     bert_extractor = BertExtractor(bert_model, tokenizer, max_input_len, device)
     corpus = read_corpus(str(args['--path-to-corpus-dir']))
-    ents_table = build_ents_table(corpus, sent_processor, bert_extractor, batch_size=int(args['--batch-size']))
+    ents_table = build_ents_table(corpus, processor, bert_extractor, batch_size=int(args['--batch-size']))
     ents_table.to_csv(str(args['--path-to-output']), index=False, sep='\t')
     return
 

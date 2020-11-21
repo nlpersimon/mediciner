@@ -32,7 +32,7 @@ import os
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
 from mediciner.dataset.bert_dataset import BertDataset
-from mediciner.dataset.processor import BertProcessor
+from mediciner.dataset.processor import BertMultiSentProcessor, BertUniSentProcessor
 from mediciner.dataset.corpus_labeler import TAG_TO_LABEL
 from mediciner.train.lightning import BertLightning
 
@@ -106,7 +106,14 @@ def main():
 
     model_name = str(args['--bert-name'])
     tokenizer = BertWordPieceTokenizer(str(args['--path-to-vocab']))
-    processor = BertProcessor(int(args['--max-input-len']), tokenizer, str(args['--mode']))
+
+    processors = {
+        'multi-sents': BertMultiSentProcessor,
+        'uni-sent': BertUniSentProcessor
+    }
+
+    processor_constructor = processors[str(args['--mode'])]
+    processor = processor_constructor(int(args['--max-input-len']), tokenizer)
     bert_dataset = BertDataset(str(args['--path-to-corpus-dir']),
                                str(args['--path-to-ents-table']),
                                processor,

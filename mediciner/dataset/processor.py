@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from tokenizers import BertWordPieceTokenizer
 import tqdm
@@ -34,11 +35,10 @@ def get_ent_spans(ents_table, article_id: int, sentence_id: int) -> List:
         return ent_spans
 
 
-class BertProcessor(object):
-    def __init__(self, max_input_len: int, tokenizer: BertWordPieceTokenizer, mode: str='multi-sents') -> None:
+class BertProcessor(ABC):
+    def __init__(self, max_input_len: int, tokenizer: BertWordPieceTokenizer) -> None:
         self.max_input_len = max_input_len
         self.tokenizer = tokenizer
-        self.mode = mode
 
     def convert_corpus_to_features(self, corpus: Dict[int, List[str]],
                                    ents_table: Union[pd.DataFrame, None]=None,
@@ -72,6 +72,23 @@ class BertProcessor(object):
         feature = Feature(example.id, encoding.ids, encoding.attention_mask, labels)
         return feature
     
+    @abstractmethod
+    def convert_article_to_examples(self, article: List[str],
+                                    dataset_id: str,
+                                    ents_table: Union[pd.DataFrame, None]=None) -> List[Example]:
+        pass
+    
+    def get_clipped_offsets(self, sentence: str) -> List[Tuple[int, int]]:
+        encoding = self.tokenizer.encode(sentence)
+        clipped_offsets = encoding.offsets[1:-1][:self.max_input_len]
+        return clipped_offsets
+
+
+
+class BertSentProcessor(BertProcessor):
+    def __init__(self, max_input_len: int, tokenizer: BertWordPieceTokenizer) -> None:
+        super().__init__(max_input_len, tokenizer)
+    
     def convert_article_to_examples(self, article: List[str],
                                     dataset_id: str,
                                     ents_table: Union[pd.DataFrame, None]=None) -> List[Example]:
@@ -79,10 +96,7 @@ class BertProcessor(object):
         start, examples = 0, []
         _, article_id = dataset_id.split('-')
         while sentences_with_id:
-            if self.mode == 'multi-sents':
-                sentences, clipped_sent_spans = self.collect_sentences_and_clip_spans(sentences_with_id)
-            else:
-                sentences, clipped_sent_spans = self.fetch_sentence_and_clip_span(sentences_with_id)
+            sentences, clipped_sent_spans = self.collect_sentences_and_clip_spans(sentences_with_id)
             clipped_sents_labels = None
             if ents_table is not None:
                 clipped_sents_labels = []
@@ -95,6 +109,16 @@ class BertProcessor(object):
             examples.append(Example(dataset_id, clipped_sentences, start, end, clipped_sents_labels))
             start = end
         return examples
+    
+    @abstractmethod
+    def collect_sentences_and_clip_spans(self, sentences_with_id: List[Tuple[int, str]]) -> Tuple[List[Tuple[int, str]],
+                                                                                                  List[Tuple[int, int]]]:
+        pass
+
+
+class BertMultiSentProcessor(BertSentProcessor):
+    def __init__(self, max_input_len: int, tokenizer: BertWordPieceTokenizer) -> None:
+        super().__init__(max_input_len, tokenizer)
     
     def collect_sentences_and_clip_spans(self, sentences_with_id: List[Tuple[int, str]]) -> Tuple[List[Tuple[int, str]],
                                                                                                   List[Tuple[int, int]]]:
@@ -111,14 +135,14 @@ class BertProcessor(object):
             clip_spans.append((clip_start, clip_end))
             hold_len += n_tokens
         return (sentences, clip_spans)
-    
-    def get_clipped_offsets(self, sentence: str) -> List[Tuple[int, int]]:
-        encoding = self.tokenizer.encode(sentence)
-        clipped_offsets = encoding.offsets[1:-1][:self.max_input_len]
-        return clipped_offsets
-    
-    def fetch_sentence_and_clip_span(self, sentences_with_id: List[Tuple[int, str]]) -> Tuple[List[Tuple[int, str]],
-                                                                                              List[Tuple[int, int]]]:
+
+
+class BertUniSentProcessor(BertSentProcessor):
+    def __init__(self, max_input_len: int, tokenizer: BertWordPieceTokenizer) -> None:
+        super().__init__(max_input_len, tokenizer)
+
+    def collect_sentences_and_clip_spans(self, sentences_with_id: List[Tuple[int, str]]) -> Tuple[List[Tuple[int, str]],
+                                                                                                  List[Tuple[int, int]]]:
         sent_id, sentence = sentences_with_id[0]
         clipped_offsets = self.get_clipped_offsets(sentence)
         (clip_start, _), (_, clip_end) = clipped_offsets[0], clipped_offsets[-1]
