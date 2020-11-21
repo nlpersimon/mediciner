@@ -1,6 +1,8 @@
 from typing import List, Dict, Tuple
 
 
+P = -1  # padding label
+
 def construct_TAG_TO_LABEL(entity_types) -> Dict[str, int]:
     TAG_TO_LABEL = {
         'O': 0,
@@ -33,9 +35,13 @@ TAG_TO_LABEL = construct_TAG_TO_LABEL(ENTITY_TYPES)
 LABEL_TO_TAG = {label: tag for tag, label in TAG_TO_LABEL.items()}
 
 def tag_to_label(tag: str) -> int:
+    if tag == 'P':
+        return P
     return TAG_TO_LABEL[tag]
 
 def label_to_tag(label: int) -> str:
+    if label == P:
+        return 'P'
     return LABEL_TO_TAG[label]
 
 def label_corpus(corpus: str, entity_spans: List[Tuple[int, int, str]]) -> List[int]:
