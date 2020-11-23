@@ -3,6 +3,7 @@ from typing import List, Dict
 import os
 import pandas as pd
 import re
+from .corpus_labeler import tag_to_label
 
 
 
@@ -31,7 +32,7 @@ def read_ents_table(path_to_ents_table: str) -> pd.DataFrame:
     ents_table = pd.read_csv(path_to_ents_table)
     return ents_table
 
-def adjust_labels_by_encoding(encoding: Encoding, labels: List[int], subword_label: int) -> List[int]:
+def adjust_labels_by_encoding(encoding: Encoding, labels: List[int], subword_label: int, padding_label: int) -> List[int]:
     """ 將原始的 labels 依據 BertWordPieceTokenizer 輸出的 encoding 做調整（調至相同長度）。
 
     我們在製作 labels 時是以 "字元" 作為標記單位，但 tokenizer 遇到英文單字的時候可能會將它切成若干份 subword，
@@ -54,8 +55,10 @@ def adjust_labels_by_encoding(encoding: Encoding, labels: List[int], subword_lab
     for token, (start, end) in zip(encoding.tokens, encoding.offsets):
         if _is_special_token(token):
             continue
-        label = subword_label if _is_subword(token) else labels[start]
-        adjusted_labels.append(label)
+        if _is_subword(token) and labels[start] != padding_label:
+            adjusted_labels.append(subword_label)
+        else:
+            adjusted_labels.append(labels[start])
     return adjusted_labels
 
 def _is_special_token(token: str) -> bool:

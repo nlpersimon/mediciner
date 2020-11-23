@@ -18,6 +18,7 @@ class BertLightning(pl.LightningModule):
         self.hparams = hparams
         self._subword_label = tag_to_label('X')
         self._outside_label = tag_to_label('O')
+        self._padding_label = tag_to_label('P')
 
     def forward(self, x):
         input_ids, attention_mask = x
@@ -76,7 +77,7 @@ class BertLightning(pl.LightningModule):
         pred_labels = outputs['logits'].argmax(dim=2)
         true_tags, pred_tags = [], []
         for true, pred, att_mask in zip(labels, pred_labels, attention_mask):
-            select_bool = (att_mask == 1) & (true != self._subword_label)
+            select_bool = (att_mask == 1) & (true != self._subword_label) & (true != self._padding_label)
             pred[pred == self._subword_label] = self._outside_label
             true_tags.append([label_to_tag(int(label)) for label in true[select_bool]])
             pred_tags.append([label_to_tag(int(label)) for label in pred[select_bool]])

@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from itertools import accumulate
 from tokenizers import BertWordPieceTokenizer
 import tqdm
-from typing import List, Union, Tuple, Dict
+from typing import List, Union, Tuple, Dict, Generator
 import pandas as pd
 from .corpus_labeler import label_corpus, tag_to_label
 from .utils import adjust_labels_by_encoding
@@ -13,6 +14,7 @@ from .utils import adjust_labels_by_encoding
 class Example:
     id: str
     content: str
+    center_span: Tuple[int, int]
     start: int=-1
     end: int=-1
     labels: Union[None, List[int]]=None
@@ -63,7 +65,7 @@ class BertProcessor(ABC):
         encoding = self.tokenizer.encode(example.content)
         labels = None
         if example.labels is not None:
-            labels = adjust_labels_by_encoding(encoding, example.labels, tag_to_label('X'))
+            labels = adjust_labels_by_encoding(encoding, example.labels, tag_to_label('X'), tag_to_label('P'))
             # add the labels for [CLS] and [SEP]
             labels = [tag_to_label('O')] + labels + [tag_to_label('O')]
         assert len(encoding.ids) == len(encoding.attention_mask)
@@ -106,7 +108,8 @@ class BertSentProcessor(BertProcessor):
             clipped_sentences = ''.join([sent[sent_start:sent_end]
                                          for (_, sent), (sent_start, sent_end) in zip(sentences, clipped_sent_spans)])
             end = start + sum(len(sent) for _, sent in sentences)
-            examples.append(Example(dataset_id, clipped_sentences, start, end, clipped_sents_labels))
+            center_span = (0, len(clipped_sentences))
+            examples.append(Example(dataset_id, clipped_sentences, center_span, start, end, clipped_sents_labels))
             start = end
         return examples
     
@@ -148,3 +151,51 @@ class BertUniSentProcessor(BertSentProcessor):
         (clip_start, _), (_, clip_end) = clipped_offsets[0], clipped_offsets[-1]
         sentences_with_id.pop(0)
         return ([(sent_id, sentence)], [(clip_start, clip_end)])
+
+
+class BertWindowProcessor(BertProcessor):
+    def __init__(self, max_input_len: int, window_size: int, tokenizer: BertWordPieceTokenizer) -> None:
+        super().__init__(max_input_len, tokenizer)
+        self.window_size = window_size
+    
+    def convert_article_to_examples(self, article: List[str],
+                                    dataset_id: str,
+                                    ents_table: Union[pd.DataFrame, None]=None) -> List[Example]:
+        _, article_id = dataset_id.split('-')
+        windows = self.generate_windows(article)
+        padding_label = tag_to_label('P')
+        examples = []
+        for center_sent_id, ((start, end), (left_context, center_sent, right_context)) in enumerate(windows):
+            clipped_sent_labels = None
+            window_text = left_context + center_sent + right_context
+            (clipped_start, _), *_, (_, clipped_end) = self.get_clipped_offsets(window_text)
+            if ents_table is not None:
+                left_labels, right_labels = [padding_label] * len(left_context), [padding_label] * len(right_context)
+                ent_spans = get_ent_spans(ents_table, int(article_id), center_sent_id)
+                center_labels = label_corpus(center_sent, ent_spans)
+                labels = left_labels + center_labels + right_labels
+                clipped_sent_labels = labels[clipped_start:clipped_end]
+            clipped_window_text = window_text[clipped_start:clipped_end]
+
+            original_center_start = len(left_context)
+            original_center_end = original_center_start + len(center_sent)
+            center_start, center_end = min(original_center_start, clipped_end), min(original_center_end, clipped_end)
+            center_span = (center_start, center_end)
+
+            examples.append(Example(dataset_id, clipped_window_text, center_span, start, end, clipped_sent_labels)) 
+        return examples
+
+    def generate_windows(self, article: List[str]) -> Generator[Tuple[Tuple[int, int], Tuple[str, str, str]],
+                                                                None,
+                                                                None]:
+        sent_starts = list(accumulate([0] + [len(sent) for sent in article[:-1]]))
+        for center_idx, center_sent in enumerate(article):
+            left_bound = max(0, center_idx - self.window_size)
+            right_bound = center_idx + self.window_size + 1
+            left_context = ''.join(article[left_bound:center_idx])
+            right_context = ''.join(article[(center_idx + 1):right_bound])
+            window = (left_context, center_sent, right_context)
+            start = sent_starts[center_idx]
+            end = start + len(center_sent)
+            original_span = (start, end)
+            yield (original_span, window)

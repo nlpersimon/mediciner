@@ -12,6 +12,7 @@ Options:
     --gpu=<int>                             use GPU [default: -1]
     --validate                              validate during training
     --mode=<str>                            multi-sents or uni-sent [default: multi-sents]
+    --window-size=<int>                     window size for window mode [default: 0]
     --ideal-batch-size=<int>                batch size that you want to use to update the model [default: 32]
     --actual-batch-size=<int>               batch size that your gpu or memory can hold, need to be smaller than --ideal-batch-size [default: 8]
     --max-epochs=<int>                      max number of epochs [default: 20]
@@ -32,7 +33,7 @@ import os
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
 from mediciner.dataset.bert_dataset import BertDataset
-from mediciner.dataset.processor import BertMultiSentProcessor, BertUniSentProcessor
+from mediciner.dataset.processor import BertMultiSentProcessor, BertUniSentProcessor, BertWindowProcessor
 from mediciner.dataset.corpus_labeler import TAG_TO_LABEL
 from mediciner.train.lightning import BertLightning
 
@@ -109,11 +110,16 @@ def main():
 
     processors = {
         'multi-sents': BertMultiSentProcessor,
-        'uni-sent': BertUniSentProcessor
+        'uni-sent': BertUniSentProcessor,
+        'window': BertWindowProcessor
     }
+    mode = str(args['--mode'])
 
-    processor_constructor = processors[str(args['--mode'])]
-    processor = processor_constructor(int(args['--max-input-len']), tokenizer)
+    processor_constructor = processors[mode]
+    if mode == 'window':
+        processor = processor_constructor(int(args['--max-input-len']), int(args['--window-size']), tokenizer)
+    else:
+        processor = processor_constructor(int(args['--max-input-len']), tokenizer)
     bert_dataset = BertDataset(str(args['--path-to-corpus-dir']),
                                str(args['--path-to-ents-table']),
                                processor,

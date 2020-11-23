@@ -10,6 +10,7 @@ Options:
     --path-to-output=<file>                 path to the built entity table
     --gpu=<int>                             use GPU [default: -1]
     --mode=<str>                            multi-sents or uni-sent [default: multi-sents]
+    --window-size=<int>                     window size for window mode [default: 0]
     --batch-size=<int>                      batch size for inferencing [default: 8]
     --max-input-len=<int>                   max length of input sequence [default: 510]
 """
@@ -17,7 +18,7 @@ from docopt import docopt
 from transformers import BertForTokenClassification
 from tokenizers import BertWordPieceTokenizer
 import torch
-from mediciner.dataset.processor import BertMultiSentProcessor, BertUniSentProcessor
+from mediciner.dataset.processor import BertMultiSentProcessor, BertUniSentProcessor, BertWindowProcessor
 from mediciner.dataset.utils import read_corpus
 from mediciner.extractor.bert_extractor import BertExtractor
 from mediciner.utils import build_ents_table
@@ -30,15 +31,22 @@ from mediciner.utils import build_ents_table
 def main():
     args = docopt(__doc__)
 
-    processors = {
-        'multi-sents': BertMultiSentProcessor,
-        'uni-sent': BertUniSentProcessor
-    }
-
     tokenizer = BertWordPieceTokenizer(str(args['--path-to-vocab']))
     max_input_len = int(args['--max-input-len'])
-    processor_constructor = processors[str(args['--mode'])]
-    processor = processor_constructor(max_input_len, tokenizer)
+
+    processors = {
+        'multi-sents': BertMultiSentProcessor,
+        'uni-sent': BertUniSentProcessor,
+        'window': BertWindowProcessor
+    }
+    mode = str(args['--mode'])
+
+    processor_constructor = processors[mode]
+    if mode == 'window':
+        processor = processor_constructor(int(args['--max-input-len']), int(args['--window-size']), tokenizer)
+    else:
+        processor = processor_constructor(int(args['--max-input-len']), tokenizer)
+
     bert_model = BertForTokenClassification.from_pretrained(str(args['--path-to-model-dir']))
     device_no = int(args['--gpu'])
     device = torch.device(f'cuda:{device_no}') if device_no > -1 else torch.device('cpu')

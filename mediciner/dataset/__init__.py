@@ -2,6 +2,7 @@ from .bert_dataset import BertDataset
 from .processor import (BertProcessor,
                         BertMultiSentProcessor,
                         BertUniSentProcessor,
+                        BertWindowProcessor,
                         Example,
                         Feature)
 

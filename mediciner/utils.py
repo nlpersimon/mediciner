@@ -56,7 +56,7 @@ def build_ents_table(corpus: Dict[int, List[str]],
     return ents_table
 
 def extract_entities(examples: List[Example], bert_extractor: BertExtractor) -> List[List[Entity]]:
-    example_entities = bert_extractor.extract_entities([example.content for example in examples])
+    example_entities = bert_extractor.extract_entities(examples)
     entities = [[Entity(ent.start + example.start, ent.end + example.start, ent.text, ent.type)
                  for ent in ents]
                 for example, ents in zip(examples, example_entities)]
