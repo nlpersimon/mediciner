@@ -28,6 +28,11 @@ class BertLightning(pl.LightningModule):
         input_ids, attention_mask, labels = batch
         outputs = self.bert_model(input_ids=input_ids, attention_mask=attention_mask)
         logits = outputs['logits']
+        loss = self.compute_loss(logits, labels, attention_mask)
+        self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=self.use_logger)
+        return loss
+    
+    def compute_loss(self, logits: torch.Tensor, labels: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
         # 把原始程式碼計算 loss 的部分拉出來做是為了 assign ignore_index 給 cross_entropy
         # 這樣 window format 就可以直接在 context sentence 的部分將 label 設為 tag_to_label('P')
         # 從而避免計算 context sentences 的 loss
@@ -39,7 +44,6 @@ class BertLightning(pl.LightningModule):
             active_loss, labels.view(-1), torch.tensor(tag_to_label('P')).type_as(labels)
         )
         loss = F.cross_entropy(active_logits, active_labels, ignore_index=tag_to_label('P'))
-        self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=self.use_logger)
         return loss
 
     def configure_optimizers(self):
