@@ -1,16 +1,17 @@
 """
 Usage:
-    train.py --path-to-corpus-dir=<dir> --path-to-ents-table=<file> --path-to-saving-model=<file> --path-to-vocab=<file> [options]
+    train.py --path-to-train-corpus-dir=<dir> --path-to-train-ents-table=<file> --path-to-saving-model=<file> --path-to-vocab=<file> [options]
 
 Options:
     -h --help                               show this screen.
-    --path-to-corpus-dir=<dir>              path to the corpus directory
-    --path-to-ents-table=<file>             path to the entities table for the corpus
+    --path-to-train-corpus-dir=<dir>        path to the training corpus directory
+    --path-to-train-ents-table=<file>       path to the training entities table for the corpus
     --path-to-saving-model=<file>           path to the fine-tuned model should be saved
     --path-to-vocab=<file>                  path to the vocabulary for tokenizer
     --bert-name=<str>                       name of bert model you want to fine-tune [default: bert-base-chinese]
+    --path-to-val-corpus-dir=<dir>          path to the validation corpus directory [default: ]
+    --path-to-val-ents-table=<file>         path to the validation entities table for the corpus [default: ]
     --gpu=<int>                             use GPU [default: -1]
-    --validate                              validate during training
     --mode=<str>                            multi-sents or uni-sent [default: multi-sents]
     --ideal-batch-size=<int>                batch size that you want to use to update the model [default: 32]
     --actual-batch-size=<int>               batch size that your gpu or memory can hold, need to be smaller than --ideal-batch-size [default: 8]
@@ -32,7 +33,7 @@ import os
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
 from mediciner.dataset.bert_dataset import BertDataset
-from mediciner.dataset.processor import BertMultiSentProcessor, BertUniSentProcessor
+from mediciner.dataset.processor import BertMultiSentProcessor, BertUniSentProcessor, BertProcessor
 from mediciner.dataset.corpus_labeler import TAG_TO_LABEL
 from mediciner.train.lightning import BertLightning
 
@@ -49,26 +50,23 @@ class TensorDataset(Dataset):
         return len(self.tensor)
 
 
-def prepare_dataloader(dataset: BertDataset,
+def prepare_dataloader(processor: BertProcessor,
                        tokenizer: BertWordPieceTokenizer,
                        args: dict) -> Tuple[DataLoader, Union[None, DataLoader]]:
-    val_dataloader: Union[None, DataLoader] = None
     batch_size = int(args['--actual-batch-size'])
-    if args['--validate']:
-        train_indices, val_indices = get_train_val_indices(list(range(len(dataset))), 0.8)
-        train_tensor = [dataset[idx] for idx in train_indices]
-        val_tensor = [dataset[idx] for idx in val_indices]
-        train_dataloader = DataLoader(TensorDataset(train_tensor), shuffle=True, batch_size=batch_size, num_workers=8)
-        val_dataloader = DataLoader(TensorDataset(val_tensor), shuffle=False, batch_size=batch_size, num_workers=8)
-    else:
-        train_dataloader = DataLoader(dataset, shuffle=True, batch_size=batch_size, num_workers=8)
+    train_dataset = BertDataset(str(args['--path-to-train-corpus-dir']),
+                                str(args['--path-to-train-ents-table']),
+                                processor,
+                                'train')
+    train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size, num_workers=8)
+    val_dataloader: Union[None, DataLoader] = None
+    if args['--path-to-val-corpus-dir']:
+        val_dataset = BertDataset(str(args['--path-to-val-corpus-dir']),
+                                  str(args['--path-to-val-ents-table']),
+                                  processor,
+                                  'val')
+        val_dataloader = DataLoader(val_dataset, shuffle=False, batch_size=batch_size, num_workers=8)
     return (train_dataloader, val_dataloader)
-
-def get_train_val_indices(indices: List[int], train_fraction: float) -> Tuple[List[int], List[int]]:
-    n_train_samples = int(len(indices) * train_fraction)
-    indices = random.sample(indices, len(indices))
-    train_indices, val_indices = indices[:n_train_samples], indices[n_train_samples:]
-    return (train_indices, val_indices)
 
 def collect_hparams(args: dict) -> dict:
     hparams = {
@@ -114,11 +112,7 @@ def main():
 
     processor_constructor = processors[str(args['--mode'])]
     processor = processor_constructor(int(args['--max-input-len']), tokenizer)
-    bert_dataset = BertDataset(str(args['--path-to-corpus-dir']),
-                               str(args['--path-to-ents-table']),
-                               processor,
-                               'train')
-    train_dataloader, val_dataloader = prepare_dataloader(bert_dataset, tokenizer, args)
+    train_dataloader, val_dataloader = prepare_dataloader(processor, tokenizer, args)
     
 
     bert_model = BertForTokenClassification.from_pretrained(model_name,
@@ -126,7 +120,7 @@ def main():
                                                             num_labels=len(TAG_TO_LABEL))
     hparams = collect_hparams(args)
     bert_lightning = BertLightning(bert_model, hparams, use_logger=True)
-
+    
     trainer = prepare_trainer(args)
     
     print('hyper parameters:')
