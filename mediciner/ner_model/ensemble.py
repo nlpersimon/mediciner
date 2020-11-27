@@ -50,3 +50,18 @@ class BertEnsemble(nn.Module):
         h_2 = get_last_hidden_states(self.bert_2, input_ids_2, attention_mask_2)
         logits = self.classifier(torch.cat([h_1, h_2], dim=-1))
         return logits
+    
+    @classmethod
+    def from_pretrained(cls,
+                        bert_1_path: str,
+                        bert_2_path: str,
+                        num_labels) -> 'BertEnsemble':
+        bert_1 = BertForTokenClassification.from_pretrained(bert_1_path,
+                                                            return_dict=True,
+                                                            output_hidden_states=True,
+                                                            num_labels=num_labels)
+        bert_2 = BertForTokenClassification.from_pretrained(bert_2_path,
+                                                            return_dict=True,
+                                                            output_hidden_states=True,
+                                                            num_labels=num_labels)
+        return cls(bert_1, bert_2, num_labels)
