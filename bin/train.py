@@ -20,6 +20,7 @@ Options:
     --optimizer=<str>                       optimizer to train the model [default: AdaBelief]
     --learning-rate=<float>                 learning rate for optimizer [default: 3e-5]
     --weight-decay=<float>                  weight decay rate for updating parameters [default: 0.0]
+    --lr-scheduler=<str>                    learning rate scheduler [default: ]
     --seed=<int>                            random seed to sample typos and sentences [default: 1]
 """
 from docopt import docopt
@@ -78,6 +79,7 @@ def collect_hparams(args: dict) -> dict:
         'optimizer': str(args['--optimizer']),
         'learning-rate': float(args['--learning-rate']),
         'weight-decay': float(args['--weight-decay']),
+        'lr-scheduler': str(args['--lr-scheduler'])
     }
     return hparams
 
@@ -86,6 +88,7 @@ def prepare_trainer(args: dict) -> pl.Trainer:
     *_, saving_model_name = str(args['--path-to-saving-model']).split('/')
     logger = TensorBoardLogger('lightning_logs', saving_model_name)
     accum_steps = int(int(args['--ideal-batch-size']) / int(args['--actual-batch-size']))
+    lr_monitor = pl.callbacks.LearningRateMonitor(logging_interval='epoch')
     trainer = pl.Trainer(max_epochs=int(args['--max-epochs']),
                         #limit_val_batches=0.0,
                         gpus=gpu_usage,
@@ -93,7 +96,8 @@ def prepare_trainer(args: dict) -> pl.Trainer:
                         #gradient_clip_val=float(args['--clip-grad']),
                         deterministic=True,
                         terminate_on_nan=True,
-                        logger=logger)
+                        logger=logger,
+                        callbacks=[lr_monitor])
     return trainer
 
 
@@ -119,6 +123,8 @@ def main():
                                                             return_dict=True,
                                                             num_labels=len(TAG_TO_LABEL))
     hparams = collect_hparams(args)
+    accum_steps = int(int(args['--ideal-batch-size']) / int(args['--actual-batch-size']))
+    hparams['n-iters-an-epoch'] = int(len(train_dataloader) / accum_steps)
     bert_lightning = BertLightning(bert_model, hparams, use_logger=True)
     
     trainer = prepare_trainer(args)

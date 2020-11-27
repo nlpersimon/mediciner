@@ -29,7 +29,12 @@ class BertLightning(pl.LightningModule):
         outputs = self.bert_model(input_ids=input_ids, attention_mask=attention_mask)
         logits = outputs['logits']
         loss = self.compute_loss(logits, labels, attention_mask)
-        self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=self.use_logger)
+        #self.log('train_loss_step', loss, on_step=True, on_epoch=False, prog_bar=True, logger=self.use_logger)
+        if self.trainer.lr_schedulers:
+            scheduler = self.trainer.lr_schedulers[0]
+            param_groups = scheduler['scheduler'].optimizer.param_groups
+            lr = param_groups[0]['lr']
+            self.log('lr', lr, on_step=True, on_epoch=False, prog_bar=True, logger=self.use_logger)
         return loss
     
     def compute_loss(self, logits: torch.Tensor, labels: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
@@ -70,9 +75,28 @@ class BertLightning(pl.LightningModule):
                 rectify=True)
         else:
             optimizer = optimizer_constructor(optimizer_grouped_parameters, lr=self.hparams['learning-rate'])
+
         if self.use_logger:
             self.logger.experiment.add_hparams(hparams_dict=self.hparams)
+
+        if self.hparams['lr-scheduler']:
+            scheduler = self.configure_lr_scheduler(optimizer)
+            return [optimizer], [scheduler]
+
         return optimizer
+    
+    def configure_lr_scheduler(self, optimizer):
+        max_lr = self.hparams['learning-rate'] 
+        base_lr = max_lr / 3
+        step_size = self.hparams['n-iters-an-epoch'] * 4
+        lr_scheduler = {'scheduler': torch.optim.lr_scheduler.CyclicLR(optimizer,
+                                                                       base_lr=base_lr,
+                                                                       max_lr=max_lr,
+                                                                       step_size_up=step_size,
+                                                                       cycle_momentum=False),
+                        'name': 'cyclic lr',
+                        'interval': 'step'}
+        return lr_scheduler
 
     def validation_step(self, batch, batch_idx):
         input_ids, attention_mask, labels = batch
