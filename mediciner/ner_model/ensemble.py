@@ -42,12 +42,10 @@ class BertEnsemble(nn.Module):
         return
         
     def forward(self,
-                input_ids_1: torch.Tensor,
-                attention_mask_1: torch.Tensor,
-                input_ids_2: torch.Tensor,
-                attention_mask_2) -> torch.Tensor:
-        h_1 = get_last_hidden_states(self.bert_1, input_ids_1, attention_mask_1)
-        h_2 = get_last_hidden_states(self.bert_2, input_ids_2, attention_mask_2)
+                input_ids: torch.Tensor,
+                attention_mask: torch.Tensor) -> torch.Tensor:
+        h_1 = get_last_hidden_states(self.bert_1, input_ids, attention_mask)
+        h_2 = get_last_hidden_states(self.bert_2, input_ids, attention_mask)
         logits = self.classifier(torch.cat([h_1, h_2], dim=-1))
         return logits
     
