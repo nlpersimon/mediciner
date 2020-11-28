@@ -1,6 +1,7 @@
 from transformers import BertForTokenClassification
 import torch
 import torch.nn as nn
+from typing import Dict
 import os
 import json
 
@@ -55,11 +56,14 @@ class BertEnsemble(nn.Module):
         
     def forward(self,
                 input_ids: torch.Tensor,
-                attention_mask: torch.Tensor) -> torch.Tensor:
+                attention_mask: torch.Tensor) -> Dict[str, torch.Tensor]:
         h_1 = get_last_hidden_states(self.bert_1, input_ids, attention_mask)
         h_2 = get_last_hidden_states(self.bert_2, input_ids, attention_mask)
         logits = self.classifier(torch.cat([h_1, h_2], dim=-1))
-        return logits
+        outputs = {
+            'logits': logits
+        }
+        return outputs
 
     def save_trained(self, save_dir_path: str) -> None:
         if not os.path.isdir(save_dir_path):
