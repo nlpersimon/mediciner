@@ -2,6 +2,7 @@ from transformers import BertForTokenClassification
 import torch
 import torch.nn as nn
 import os
+import json
 
 
 
@@ -59,3 +60,31 @@ class BertEnsemble(nn.Module):
         h_2 = get_last_hidden_states(self.bert_2, input_ids, attention_mask)
         logits = self.classifier(torch.cat([h_1, h_2], dim=-1))
         return logits
+
+    def save_trained(self, save_dir_path: str) -> None:
+        if not os.path.isdir(save_dir_path):
+            os.mkdir(save_dir_path)
+        
+        config = {
+            'bert_1_path': self.bert_1_path,
+            'bert_2_path': self.bert_2_path,
+            'num_labels': self.num_labels
+        }
+        with open(os.path.join(save_dir_path, 'config.json'), 'w') as f:
+            json.dump(config, f)
+        
+        torch.save(self.classifier.state_dict(), os.path.join(save_dir_path, 'classifier.pt'))
+        return
+    
+    @classmethod
+    def load_trained(cls, load_dir_path: str) -> 'BertEnsemble':
+        with open(os.path.join(load_dir_path, 'config.json')) as f:
+            config = json.load(f)
+        
+        bert_ensemble = cls(config['bert_1_path'],
+                            config['bert_2_path'],
+                            int(config['num_labels']))
+        classifier = nn.Linear(bert_ensemble.classifier.in_features, bert_ensemble.classifier.out_features)
+        classifier.load_state_dict(torch.load(os.path.join(load_dir_path, 'classifier.pt')))
+        bert_ensemble.classifier = classifier.eval()
+        return bert_ensemble
