@@ -1,6 +1,7 @@
 from transformers import BertForTokenClassification
 import torch
 import torch.nn as nn
+import os
 
 
 
@@ -15,10 +16,20 @@ def get_last_hidden_states(bert: BertForTokenClassification,
 
 class BertEnsemble(nn.Module):
     def __init__(self,
-                 bert_1: BertForTokenClassification,
-                 bert_2: BertForTokenClassification,
+                 bert_1_path: str,
+                 bert_2_path: str,
                  num_labels: int) -> None:
         super().__init__()
+        self.bert_1_path = os.path.abspath(bert_1_path)
+        self.bert_2_path = os.path.abspath(bert_2_path)
+        bert_1 = BertForTokenClassification.from_pretrained(bert_1_path,
+                                                            return_dict=True,
+                                                            output_hidden_states=True,
+                                                            num_labels=num_labels)
+        bert_2 = BertForTokenClassification.from_pretrained(bert_2_path,
+                                                            return_dict=True,
+                                                            output_hidden_states=True,
+                                                            num_labels=num_labels)
         self.bert_1 = bert_1.eval()
         self.bert_2 = bert_2.eval()
         self.num_labels = num_labels
@@ -48,18 +59,3 @@ class BertEnsemble(nn.Module):
         h_2 = get_last_hidden_states(self.bert_2, input_ids, attention_mask)
         logits = self.classifier(torch.cat([h_1, h_2], dim=-1))
         return logits
-    
-    @classmethod
-    def from_pretrained(cls,
-                        bert_1_path: str,
-                        bert_2_path: str,
-                        num_labels) -> 'BertEnsemble':
-        bert_1 = BertForTokenClassification.from_pretrained(bert_1_path,
-                                                            return_dict=True,
-                                                            output_hidden_states=True,
-                                                            num_labels=num_labels)
-        bert_2 = BertForTokenClassification.from_pretrained(bert_2_path,
-                                                            return_dict=True,
-                                                            output_hidden_states=True,
-                                                            num_labels=num_labels)
-        return cls(bert_1, bert_2, num_labels)
