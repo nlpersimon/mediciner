@@ -3,7 +3,7 @@ import pandas as pd
 from tokenizers import BertWordPieceTokenizer
 import tqdm
 from typing import List, Dict
-from .extractor.extractors import BertExtractor, Entity
+from .extractor.extractors import BaseExtractor, Entity
 from .dataset.processor import BertProcessor, Example
 
 
@@ -39,13 +39,13 @@ def sentences_to_paragraphs(sentences: List[str],
 
 def build_ents_table(corpus: Dict[int, List[str]],
                      processor: BertProcessor,
-                     bert_extractor: BertExtractor,
+                     extractor: BaseExtractor,
                      batch_size: int=32) -> pd.DataFrame:
     examples = processor.convert_corpus_to_examples(corpus)
     packed_examples = [examples[i:(i + batch_size)] for i in range(0, len(examples), batch_size)]
     ents_matrix = []
     for pack in tqdm.tqdm(packed_examples, desc='extract entities from the corpus'):
-        example_ents = extract_entities(pack, bert_extractor)
+        example_ents = extract_entities(pack, extractor)
         for example, ents in zip(pack, example_ents):
             _, article_id = example.id.split('-')
             ent_rows = [[int(article_id), ent.start, ent.end, ent.text, ent.type]
@@ -55,8 +55,8 @@ def build_ents_table(corpus: Dict[int, List[str]],
                               columns=['article_id', 'start_position', 'end_position', 'entity_text', 'entity_type'])
     return ents_table
 
-def extract_entities(examples: List[Example], bert_extractor: BertExtractor) -> List[List[Entity]]:
-    example_entities = bert_extractor.extract_entities([example.content for example in examples])
+def extract_entities(examples: List[Example], extractor: BaseExtractor) -> List[List[Entity]]:
+    example_entities = extractor.extract_entities([example.content for example in examples])
     entities = [[Entity(ent.start + example.start, ent.end + example.start, ent.text, ent.type)
                  for ent in ents]
                 for example, ents in zip(examples, example_entities)]

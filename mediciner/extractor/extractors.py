@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from transformers import BertForTokenClassification
 from tokenizers import Encoding, BertWordPieceTokenizer
@@ -18,11 +19,21 @@ class Entity:
     type: str
 
 
-class BertExtractor(object):
+class BaseExtractor(ABC):
+    def __init__(self) -> None:
+        pass
+
+    @abstractmethod 
+    def extract_entities(self, texts: List[str]) -> List[List[Entity]]:
+        pass
+
+
+class BertExtractor(BaseExtractor):
     def __init__(self, bert_model: BertForTokenClassification,
                        tokenizer: BertWordPieceTokenizer,
                        max_input_len: int,
                        device: torch.device=torch.device('cpu')) -> None:
+        super().__init__()
         self.device = device
         self.bert_model = bert_model
         self.bert_model.eval()
