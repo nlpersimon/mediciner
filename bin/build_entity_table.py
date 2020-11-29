@@ -12,6 +12,7 @@ Options:
     --mode=<str>                            multi-sents or uni-sent [default: multi-sents]
     --batch-size=<int>                      batch size for inferencing [default: 8]
     --max-input-len=<int>                   max length of input sequence [default: 510]
+    --ensemble                              ensemble or not
 """
 from docopt import docopt
 from transformers import BertForTokenClassification
@@ -21,6 +22,7 @@ from mediciner.dataset.processor import BertMultiSentProcessor, BertUniSentProce
 from mediciner.dataset.utils import read_corpus
 from mediciner.extractor.bert_extractor import BertExtractor
 from mediciner.utils import build_ents_table
+from mediciner.ner_model import BertEnsemble
 
 
 
@@ -39,7 +41,10 @@ def main():
     max_input_len = int(args['--max-input-len'])
     processor_constructor = processors[str(args['--mode'])]
     processor = processor_constructor(max_input_len, tokenizer)
-    bert_model = BertForTokenClassification.from_pretrained(str(args['--path-to-model-dir']))
+    if args['--ensemble']:
+        bert_model = BertEnsemble.load_trained(str(args['--path-to-model-dir']))
+    else:
+        bert_model = BertForTokenClassification.from_pretrained(str(args['--path-to-model-dir']))
     device_no = int(args['--gpu'])
     device = torch.device(f'cuda:{device_no}') if device_no > -1 else torch.device('cpu')
     bert_extractor = BertExtractor(bert_model, tokenizer, max_input_len, device)
