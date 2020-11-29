@@ -87,7 +87,7 @@ class BertLightning(pl.LightningModule):
     
     def configure_lr_scheduler(self, optimizer):
         max_lr = self.hparams['learning-rate'] 
-        base_lr = max_lr / 3
+        base_lr = self.hparams.get('base-lr', max_lr / 3)
         step_size = self.hparams['n-iters-an-epoch'] * 4
         lr_scheduler = {'scheduler': torch.optim.lr_scheduler.CyclicLR(optimizer,
                                                                        base_lr=base_lr,

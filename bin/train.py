@@ -21,6 +21,7 @@ Options:
     --learning-rate=<float>                 learning rate for optimizer [default: 3e-5]
     --weight-decay=<float>                  weight decay rate for updating parameters [default: 0.0]
     --lr-scheduler=<str>                    learning rate scheduler [default: ]
+    --base-lr=<float>                       base learning rate for cyclic lr scheduler [default: ]
     --seed=<int>                            random seed to sample typos and sentences [default: 1]
 """
 from docopt import docopt
@@ -49,6 +50,8 @@ def collect_hparams(args: dict) -> dict:
         'weight-decay': float(args['--weight-decay']),
         'lr-scheduler': str(args['--lr-scheduler'])
     }
+    if args['--base-lr']:
+        hparams['base-lr'] = float(args['--base-lr'])
     return hparams
 
 def main():
