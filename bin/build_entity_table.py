@@ -20,7 +20,7 @@ from tokenizers import BertWordPieceTokenizer
 import torch
 from mediciner.dataset.processor import BertMultiSentProcessor, BertUniSentProcessor
 from mediciner.dataset.utils import read_corpus
-from mediciner.extractor.bert_extractor import BertExtractor
+from mediciner.extractor.extractors import BertExtractor
 from mediciner.utils import build_ents_table
 from mediciner.ner_model import BertEnsemble
 

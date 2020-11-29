@@ -3,7 +3,7 @@ import pandas as pd
 from tokenizers import BertWordPieceTokenizer
 import tqdm
 from typing import List, Dict
-from .extractor.bert_extractor import BertExtractor, Entity
+from .extractor.extractors import BertExtractor, Entity
 from .dataset.processor import BertProcessor, Example
 
 

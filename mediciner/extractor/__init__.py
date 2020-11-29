@@ -1,1 +1,1 @@
-from .bert_extractor import Entity, BertExtractor
+from .extractors import Entity, BertExtractor
