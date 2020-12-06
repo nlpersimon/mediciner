@@ -1,5 +1,5 @@
 import pytorch_lightning as pl
-from transformers import BertForTokenClassification, AdamW
+from transformers import BertForTokenClassification, AdamW, get_linear_schedule_with_warmup
 from torch_optimizer import RAdam
 import torch
 import torch.nn.functional as F
@@ -80,12 +80,23 @@ class BertLightning(pl.LightningModule):
             self.logger.experiment.add_hparams(hparams_dict=self.hparams)
 
         if self.hparams['lr-scheduler']:
-            scheduler = self.configure_lr_scheduler(optimizer)
+            scheduler = self.configure_lr_scheduler(optimizer, self.hparams['lr-scheduler'])
             return [optimizer], [scheduler]
 
         return optimizer
+
+    def configure_lr_scheduler(self, optimizer, lr_scheduler_name):
+        if lr_scheduler_name == 'cyclic':
+            lr_scheduler = self.get_cyclic_lr_scheduler(optimizer)
+        else:
+            total_training_steps = self.hparams['n-iters-an-epoch'] * self.hparams['max-epochs']
+            lr_scheduler = {'scheduler': get_linear_schedule_with_warmup(optimizer, 0, total_training_steps),
+                            'name': 'linear lr',
+                            'interval': 'step'}
+        return lr_scheduler
+            
     
-    def configure_lr_scheduler(self, optimizer):
+    def get_cyclic_lr_scheduler(self, optimizer):
         max_lr = self.hparams['learning-rate'] 
         base_lr = self.hparams.get('base-lr', max_lr / 3)
         step_size = self.hparams['n-iters-an-epoch'] * 4
