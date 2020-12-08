@@ -4,25 +4,28 @@ from typing import Tuple, List, Union
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
 from ..dataset.processor import BertProcessor
-from ..dataset.bert_dataset import BertDataset
+from ..dataset.bert_dataset import BertDataset, BertWithMRCDataset
 
 
 def prepare_dataloader(processor: BertProcessor,
                        tokenizer: BertWordPieceTokenizer,
                        args: dict) -> Tuple[DataLoader, Union[None, DataLoader]]:
     batch_size = int(args['--actual-batch-size'])
-    train_dataset = BertDataset(str(args['--path-to-train-corpus-dir']),
-                                str(args['--path-to-train-ents-table']),
-                                processor,
-                                'train')
+    paradigm = str(args['--paradigm'])
+    dataset_constructor = BertDataset if paradigm == 'sql' else BertWithMRCDataset
+    train_dataset = dataset_constructor(str(args['--path-to-train-corpus-dir']),
+                                        str(args['--path-to-train-ents-table']),
+                                        processor,
+                                        'val')
     train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size, num_workers=8)
     val_dataloader: Union[None, DataLoader] = None
     if args['--path-to-val-corpus-dir']:
-        val_dataset = BertDataset(str(args['--path-to-val-corpus-dir']),
-                                  str(args['--path-to-val-ents-table']),
-                                  processor,
-                                  'val')
-        val_dataloader = DataLoader(val_dataset, shuffle=False, batch_size=batch_size, num_workers=8)
+        val_dataset = dataset_constructor(str(args['--path-to-val-corpus-dir']),
+                                         str(args['--path-to-val-ents-table']),
+                                         processor,
+                                         'val')
+        val_batch_size = batch_size if paradigm == 'sql' else 13
+        val_dataloader = DataLoader(val_dataset, shuffle=False, batch_size=val_batch_size, num_workers=8)
     return (train_dataloader, val_dataloader)
 
 def prepare_trainer(args: dict) -> pl.Trainer:

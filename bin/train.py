@@ -12,6 +12,7 @@ Options:
     --path-to-val-corpus-dir=<dir>          path to the validation corpus directory [default: ]
     --path-to-val-ents-table=<file>         path to the validation entities table for the corpus [default: ]
     --gpu=<int>                             use GPU [default: -1]
+    --paradigm=<str>                        sequential labeling (sql) or machine reading comprehension (mrc) [default: sql]
     --mode=<str>                            multi-sents or uni-sent [default: multi-sents]
     --ideal-batch-size=<int>                batch size that you want to use to update the model [default: 32]
     --actual-batch-size=<int>               batch size that your gpu or memory can hold, need to be smaller than --ideal-batch-size [default: 8]
@@ -30,9 +31,11 @@ from tokenizers import BertWordPieceTokenizer
 from transformers import BertForTokenClassification
 import os
 import pytorch_lightning as pl
-from mediciner.dataset.processor import BertMultiSentProcessor, BertUniSentProcessor, BertProcessor
+from mediciner.dataset.processor import BertMultiSentProcessor, BertUniSentProcessor, BertProcessor, BertWithMRCProcessor
 from mediciner.dataset.corpus_labeler import TAG_TO_LABEL
+from mediciner.ner_model import BertWithMRC
 from mediciner.train import (BertLightning,
+                             BertWithMRCLightning,
                              prepare_dataloader,
                              prepare_trainer)
 
@@ -62,23 +65,30 @@ def main():
     model_name = str(args['--bert-name'])
     tokenizer = BertWordPieceTokenizer(str(args['--path-to-vocab']))
 
-    processors = {
-        'multi-sents': BertMultiSentProcessor,
-        'uni-sent': BertUniSentProcessor
-    }
+    if str(args['--paradigm']) == 'sql':
+        processors = {
+            'multi-sents': BertMultiSentProcessor,
+            'uni-sent': BertUniSentProcessor
+        }
+        processor_constructor = processors[str(args['--mode'])]
+        bert_model = BertForTokenClassification.from_pretrained(model_name,
+                                                                return_dict=True,
+                                                                num_labels=len(TAG_TO_LABEL))
+    else:
+        processor_constructor = BertWithMRCProcessor
+        bert_model = BertWithMRC.from_pretrained(model_name)
 
-    processor_constructor = processors[str(args['--mode'])]
     processor = processor_constructor(int(args['--max-input-len']), tokenizer)
     train_dataloader, val_dataloader = prepare_dataloader(processor, tokenizer, args)
-    
-
-    bert_model = BertForTokenClassification.from_pretrained(model_name,
-                                                            return_dict=True,
-                                                            num_labels=len(TAG_TO_LABEL))
+        
     hparams = collect_hparams(args)
     accum_steps = int(int(args['--ideal-batch-size']) / int(args['--actual-batch-size']))
     hparams['n-iters-an-epoch'] = int(len(train_dataloader) / accum_steps)
-    bert_lightning = BertLightning(bert_model, hparams, use_logger=True)
+
+    if str(args['--paradigm']) == 'sql':
+        bert_lightning = BertLightning(bert_model, hparams, use_logger=True)
+    else:
+        bert_lightning = BertWithMRCLightning(bert_model, hparams, use_logger=True)
     
     trainer = prepare_trainer(args)
     
