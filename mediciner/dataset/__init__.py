@@ -1,4 +1,4 @@
-from .bert_dataset import BertDataset
+from .bert_dataset import BertDataset, BertWithMRCDataset
 from .processor import (BertProcessor,
                         BertMultiSentProcessor,
                         BertUniSentProcessor,
