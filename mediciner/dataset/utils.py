@@ -51,9 +51,7 @@ def adjust_labels_by_encoding(encoding: Encoding, labels: List[int], subword_lab
         adjusted_labels: 調整後的 labels，長度與 encoding 中的 token 數量相等，供模型學習
     """
     adjusted_labels = []
-    for token, (start, end) in zip(encoding.tokens, encoding.offsets):
-        if _is_special_token(token):
-            continue
+    for token, (start, end) in zip(encoding.tokens, encoding.offsets[1:-1]):
         label = subword_label if _is_subword(token) else labels[start]
         adjusted_labels.append(label)
     return adjusted_labels
