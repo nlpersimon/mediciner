@@ -7,6 +7,8 @@ from adabelief_pytorch import AdaBelief
 from seqeval.metrics import classification_report
 from seqeval.scheme import IOB2
 from ..dataset.corpus_labeler import tag_to_label, label_to_tag
+from ..dataset.mrc import id_to_entype
+from ..ner_model import BertWithMRC
 
 
 
@@ -142,3 +144,68 @@ class BertLightning(pl.LightningModule):
                                                     scheme=IOB2,
                                                     output_dict=True)
         return entity_type_metrics
+
+
+class BertWithMRCLightning(BertLightning):
+    def __init__(self, bert_mrc_model: BertWithMRC, hparams: dict, use_logger: bool = False) -> None:
+        super().__init__(bert_mrc_model, hparams, use_logger)
+    
+    def forward(self, x):
+        input_ids, token_type_ids, attention_mask = x
+        outputs = self.bert_model(input_ids=input_ids,
+                                  token_type_ids=token_type_ids,
+                                  attention_mask=attention_mask)
+        return outputs
+    
+    def training_step(self, batch, batch_idx):
+        input_ids, token_type_ids, attention_mask, start_tensor, end_tensor, entype_ids = batch
+        outputs = self.bert_model(input_ids=input_ids,
+                                  token_type_ids=token_type_ids,
+                                  attention_mask=attention_mask,
+                                  start_tensor=start_tensor,
+                                  end_tensor=end_tensor)
+        loss = outputs['loss']
+        if self.trainer.lr_schedulers:
+            scheduler = self.trainer.lr_schedulers[0]
+            param_groups = scheduler['scheduler'].optimizer.param_groups
+            lr = param_groups[0]['lr']
+            self.log('lr', lr, on_step=True, on_epoch=False, prog_bar=True, logger=self.use_logger)
+        return loss
+    
+    def validation_step(self, batch, batch_idx):
+        """
+        每個 batch 都是一個 paragraph 的各個 entity type query
+        且需要另外提供 ent_type_ids 以供對回去 entity type labels
+        """
+        input_ids, token_type_ids, attention_mask, start_tensor, end_tensor, ent_type_ids = batch
+        outputs = self((input_ids, token_type_ids, attention_mask))
+        pred_starts = outputs['start_logits'].argmax(dim=2)
+        pred_ends = outputs['end_logits'].argmax(dim=2)
+        input_len = ((attention_mask[0] == 1) & (token_type_ids[0] == 1)).sum()
+        true_tags, pred_tags = ['O'] * input_len, ['O'] * input_len
+        for true_s, true_e, pred_s, pred_e, tkt_ids, att_mask, etp_id in zip(start_tensor,
+                                                                             end_tensor,
+                                                                             pred_starts,
+                                                                             pred_ends,
+                                                                             token_type_ids,
+                                                                             attention_mask,
+                                                                             ent_type_ids):
+            select_bool = (att_mask == 1) & (tkt_ids == 1)
+            self.fill_tags(true_tags, true_s[select_bool], true_e[select_bool], int(etp_id))
+            self.fill_tags(pred_tags, pred_s[select_bool], pred_e[select_bool], int(etp_id))
+        return ([true_tags], [pred_tags])
+    
+    def fill_tags(self, raw_tags, starts, ends, ent_type_id):
+        starts = torch.where(starts == 1)[0]
+        ends = torch.where(ends == 1)[0]
+        ent_chunks = sorted([('S', int(s)) for s in starts] + [('E', int(e)) for e in ends],
+                            key=lambda x: x[1])
+        prev_btp, prev_idx = '', -1
+        for bound_type, idx in ent_chunks:
+            if bound_type == 'S' and raw_tags[idx] == 'O':
+                raw_tags[idx] = f'B-{id_to_entype(ent_type_id)}'
+            elif prev_btp == 'S' and all(tag == 'O' for tag in raw_tags[(prev_idx + 1):(idx + 1)]):
+                raw_tags[(prev_idx + 1):(idx + 1)] = [f'I-{id_to_entype(ent_type_id)}'] * (idx - prev_idx)
+            prev_btp, prev_idx = bound_type, idx
+        return
+        
