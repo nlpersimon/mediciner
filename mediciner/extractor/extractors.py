@@ -4,7 +4,8 @@ from transformers import BertForTokenClassification
 from tokenizers import Encoding, BertWordPieceTokenizer
 import torch
 from typing import List, Tuple
-from seqeval.metrics.sequence_labeling import get_entities
+# from seqeval.metrics.sequence_labeling import get_entities
+from .utils import get_entities
 from .utils import encodings_to_features, translate_labels_to_tags, adjust_pred_tags, unpad_labels
 from ..dataset.corpus_labeler import label_to_tag
 
@@ -50,7 +51,7 @@ class BertExtractor(BaseExtractor):
                            for pred_labels, text, encoding in zip(pred_labels_batch, texts, encodings)]
         pred_tags_batch = [adjust_pred_tags(pred_tags)
                            for pred_tags in pred_tags_batch]
-        entities = [[Entity(start, end + 1, text[start:(end + 1)], ent_type) for ent_type, start, end in get_entities(pred_tags)]
+        entities = [[Entity(start, end + 1, text[start:(end + 1)], ent_type) for ent_type, start, end in get_entities(pred_tags, True)]
                     for text, pred_tags in zip(texts, pred_tags_batch)]
         return entities
 
