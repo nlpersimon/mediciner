@@ -1,3 +1,4 @@
+from collections import Counter
 from tokenizers import Encoding
 import torch
 from typing import List, Tuple
@@ -51,3 +52,61 @@ def adjust_pred_tags(pred_tags: List[str]) -> List[str]:
         prev_type = tag[2:]
         adjusted_tags.append(tag)
     return adjusted_tags
+
+"""def get_entities(tags: List[str], strict=False) -> List[Tuple[str, int, int]]:
+    entities, type_stack = [], []
+    start, end = 0, 0
+    b_exist = False
+    tags = tags + ['O']
+    for idx, tag in enumerate(tags):
+        if (tag == 'O' or tag[0] == 'B'):
+            if type_stack:
+                type_count = Counter(type_stack)
+                ent_type = max(type_count, key=lambda t: type_count[t])
+                entities.append((ent_type, start, end))
+                type_stack, b_exist = [], False
+            next_idx = min(idx + 1, len(tags) - 1)
+            if tag == 'O' and tags[next_idx][0] == 'I':
+                start, end = idx + 1, idx + 1
+        if tag[0] == 'B':
+            start, end = idx, idx
+            b_exist = True
+            type_stack.append(tag[2:])
+        elif tag[0] == 'I' and (b_exist or not strict):
+            end = idx
+            type_stack.append(tag[2:])
+    return entities"""
+
+def get_entities(tags: List[str], strict=False) -> List[Tuple[str, int, int]]:
+    entities, type_stack = [], []
+    start, end = 0, 0
+    prev_tag, b_exist = 'O', False
+    tags = tags + ['O']
+    for idx, tag in enumerate(tags):
+        if is_end_of_prev_chunk(tag) and type_stack:
+            ent_type = get_argmax_type(type_stack)
+            entities.append((ent_type, start, end))
+            type_stack, b_exist = [], False
+        if is_start_of_next_chunk(prev_tag, tag, strict):
+            start = idx
+            b_exist = True
+            type_stack.append(tag[2:])
+        elif is_inside_of_next_chunk(tag, b_exist):
+            type_stack.append(tag[2:])
+        end, prev_tag = idx, tag
+    return entities
+
+def is_end_of_prev_chunk(tag: str) -> bool:
+    return tag == 'O' or tag[0] == 'B'
+
+def get_argmax_type(type_stack: List[str]) -> str:
+    type_count = Counter(type_stack)
+    ent_type = max(type_count, key=lambda t: type_count[t])
+    return ent_type
+
+def is_start_of_next_chunk(previous_tag, current_tag, strict):
+    inside_as_start = previous_tag[0] == 'O' and current_tag[0] == 'I'
+    return (inside_as_start and not strict) or (current_tag[0] == 'B')
+
+def is_inside_of_next_chunk(current_tag, b_exist):
+    return current_tag[0] == 'I' and b_exist
