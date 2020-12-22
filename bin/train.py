@@ -22,6 +22,7 @@ Options:
     --weight-decay=<float>                  weight decay rate for updating parameters [default: 0.0]
     --lr-scheduler=<str>                    learning rate scheduler [default: ]
     --base-lr=<float>                       base learning rate for cyclic lr scheduler [default: ]
+    --crf                                   use CRF layer or not
     --seed=<int>                            random seed to sample typos and sentences [default: 1]
 """
 from docopt import docopt
@@ -33,9 +34,10 @@ import pytorch_lightning as pl
 from mediciner.dataset.processor import BertMultiSentProcessor, BertUniSentProcessor, BertProcessor
 from mediciner.dataset.corpus_labeler import TAG_TO_LABEL
 from mediciner.train import (BertLightning,
+                             BertWithCRFLightning,
                              prepare_dataloader,
                              prepare_trainer)
-
+from mediciner.ner_model import BertWithCRF
 
 
 def collect_hparams(args: dict) -> dict:
@@ -48,7 +50,8 @@ def collect_hparams(args: dict) -> dict:
         'optimizer': str(args['--optimizer']),
         'learning-rate': float(args['--learning-rate']),
         'weight-decay': float(args['--weight-decay']),
-        'lr-scheduler': str(args['--lr-scheduler'])
+        'lr-scheduler': str(args['--lr-scheduler']),
+        'CRF': True if args['--crf'] else False
     }
     if args['--base-lr']:
         hparams['base-lr'] = float(args['--base-lr'])
@@ -71,14 +74,21 @@ def main():
     processor = processor_constructor(int(args['--max-input-len']), tokenizer)
     train_dataloader, val_dataloader = prepare_dataloader(processor, tokenizer, args)
     
-
-    bert_model = BertForTokenClassification.from_pretrained(model_name,
-                                                            return_dict=True,
-                                                            num_labels=len(TAG_TO_LABEL))
+    if args['--crf']:
+        bert_model = BertWithCRF.from_pretrained(model_name,
+                                                 num_labels=len(TAG_TO_LABEL))
+    else:
+        bert_model = BertForTokenClassification.from_pretrained(model_name,
+                                                                return_dict=True,
+                                                                num_labels=len(TAG_TO_LABEL))
     hparams = collect_hparams(args)
     accum_steps = int(int(args['--ideal-batch-size']) / int(args['--actual-batch-size']))
     hparams['n-iters-an-epoch'] = int(len(train_dataloader) / accum_steps)
-    bert_lightning = BertLightning(bert_model, hparams, use_logger=True)
+
+    if args['--crf']:
+        bert_lightning = BertWithCRFLightning(bert_model, hparams, use_logger=True)
+    else:
+        bert_lightning = BertLightning(bert_model, hparams, use_logger=True)
     
     trainer = prepare_trainer(args)
     
