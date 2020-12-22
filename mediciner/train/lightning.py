@@ -7,6 +7,7 @@ from adabelief_pytorch import AdaBelief
 from seqeval.metrics import classification_report
 from seqeval.scheme import IOB2
 from ..dataset.corpus_labeler import tag_to_label, label_to_tag
+from ..ner_model import BertWithCRF
 
 
 
@@ -142,3 +143,34 @@ class BertLightning(pl.LightningModule):
                                                     scheme=IOB2,
                                                     output_dict=True)
         return entity_type_metrics
+
+
+class BertWithCRFLightning(BertLightning):
+    def __init__(self, bert_crf: BertWithCRF, hparams: dict, use_logger: bool = False) -> None:
+        super().__init__(bert_crf, hparams, use_logger)
+
+    def training_step(self, batch, batch_idx):
+        input_ids, attention_mask, labels = batch
+        outputs = self.bert_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+        loss = outputs['loss']
+        if self.trainer.lr_schedulers:
+            scheduler = self.trainer.lr_schedulers[0]
+            param_groups = scheduler['scheduler'].optimizer.param_groups
+            lr = param_groups[0]['lr']
+            self.log('lr', lr, on_step=True, on_epoch=False, prog_bar=True, logger=self.use_logger)
+        return loss
+    
+    def validation_step(self, batch, batch_idx):
+        input_ids, attention_mask, labels = batch
+        outputs = self((input_ids, attention_mask))
+        pred_labels = self.bert_model.crf.decode(outputs['emissions'], attention_mask.byte())
+        true_tags, pred_tags = [], []
+        for true, pred, att_mask in zip(labels, pred_labels, attention_mask):
+            select_bool = (att_mask == 1) & (true != self._subword_label)
+            pred = [label if label != self._subword_label else self._outside_label for label in pred]
+            assert len(pred[1:-1]) == len(true[att_mask == 1][1:-1])
+            true_tags.append([label_to_tag(int(label)) for label in true[select_bool][1:-1]])
+            pred_tags.append([label_to_tag(int(pred_label)) for pred_label, true_label in zip(pred[1:-1], true[att_mask == 1][1:-1])
+                              if true_label != self._subword_label])
+        return (true_tags, pred_tags)
+        
