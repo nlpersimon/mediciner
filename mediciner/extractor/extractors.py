@@ -8,6 +8,7 @@ from typing import List, Tuple
 from .utils import get_entities
 from .utils import encodings_to_features, translate_labels_to_tags, adjust_pred_tags, unpad_labels
 from ..dataset.corpus_labeler import label_to_tag
+from ..ner_model import BertWithCRF
 
 
 
@@ -61,4 +62,20 @@ class BertExtractor(BaseExtractor):
         pred_labels = outputs['logits'].argmax(dim=2).to('cpu')
         torch.cuda.empty_cache()
         pred_labels = unpad_labels(pred_labels, attention_mask)
+        return pred_labels
+
+
+class BertWithCRFExtractor(BertExtractor):
+    def __init__(self, bert_model: BertWithCRF,
+                       tokenizer: BertWordPieceTokenizer,
+                       max_input_len: int,
+                       device: torch.device=torch.device('cpu')) -> None:
+        super().__init__(bert_model, tokenizer, max_input_len, device)
+    
+    def predict_labels(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> List[torch.Tensor]:
+        with torch.no_grad():
+            outputs = self.bert_model(input_ids, attention_mask)
+            pred_labels = self.bert_model.crf.decode(outputs['emissions'], attention_mask.byte())
+        torch.cuda.empty_cache()
+        pred_labels = [torch.tensor(labels) for labels in pred_labels]
         return pred_labels
