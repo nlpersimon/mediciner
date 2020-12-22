@@ -13,6 +13,7 @@ Options:
     --batch-size=<int>                      batch size for inferencing [default: 8]
     --max-input-len=<int>                   max length of input sequence [default: 510]
     --ensemble                              ensemble or not
+    --crf                                   model with CRF or not
 """
 from docopt import docopt
 from transformers import BertForTokenClassification
@@ -20,9 +21,9 @@ from tokenizers import BertWordPieceTokenizer
 import torch
 from mediciner.dataset.processor import BertMultiSentProcessor, BertUniSentProcessor
 from mediciner.dataset.utils import read_corpus
-from mediciner.extractor.extractors import BertExtractor
+from mediciner.extractor.extractors import BertExtractor, BertWithCRFExtractor
 from mediciner.utils import build_ents_table
-from mediciner.ner_model import BertEnsemble
+from mediciner.ner_model import BertEnsemble, BertWithCRF
 
 
 
@@ -43,11 +44,16 @@ def main():
     processor = processor_constructor(max_input_len, tokenizer)
     if args['--ensemble']:
         bert_model = BertEnsemble.load_trained(str(args['--path-to-model-dir']))
+    elif args['--crf']:
+        bert_model = BertWithCRF.from_pretrained(str(args['--path-to-model-dir']))
     else:
         bert_model = BertForTokenClassification.from_pretrained(str(args['--path-to-model-dir']))
     device_no = int(args['--gpu'])
     device = torch.device(f'cuda:{device_no}') if device_no > -1 else torch.device('cpu')
-    bert_extractor = BertExtractor(bert_model, tokenizer, max_input_len, device)
+    if args['--crf']:
+        bert_extractor = BertWithCRFExtractor(bert_model, tokenizer, max_input_len, device)
+    else:
+        bert_extractor = BertExtractor(bert_model, tokenizer, max_input_len, device)
     corpus = read_corpus(str(args['--path-to-corpus-dir']))
     ents_table = build_ents_table(corpus, processor, bert_extractor, batch_size=int(args['--batch-size']))
     ents_table.to_csv(str(args['--path-to-output']), index=False, sep='\t')
