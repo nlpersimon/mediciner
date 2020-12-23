@@ -53,13 +53,7 @@ class BertLightning(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        no_decay = ('bias', 'gamma', 'beta')
-        optimizer_grouped_parameters = [
-            {'params': [p for n, p in self.bert_model.named_parameters() if not any(nd in n for nd in no_decay)],
-             'weight_decay': self.hparams['weight-decay']},
-            {'params': [p for n, p in self.bert_model.named_parameters() if any(nd in n for nd in no_decay)],
-             'weight_decay': 0.0}
-        ]
+        optimizer_grouped_parameters = self.get_optim_grouped_params()
         optimizer_ops = {
             'AdamW': AdamW,
             'RAdam': RAdam,
@@ -85,6 +79,16 @@ class BertLightning(pl.LightningModule):
             return [optimizer], [scheduler]
 
         return optimizer
+    
+    def get_optim_grouped_params(self):
+        no_decay = ('bias', 'gamma', 'beta')
+        optimizer_grouped_parameters = [
+            {'params': [p for n, p in self.bert_model.named_parameters() if not any(nd in n for nd in no_decay)],
+             'weight_decay': self.hparams['weight-decay']},
+            {'params': [p for n, p in self.bert_model.named_parameters() if any(nd in n for nd in no_decay)],
+             'weight_decay': 0.0}
+        ]
+        return optimizer_grouped_parameters
 
     def configure_lr_scheduler(self, optimizer, lr_scheduler_name):
         if lr_scheduler_name == 'cyclic':
@@ -173,4 +177,17 @@ class BertWithCRFLightning(BertLightning):
             pred_tags.append([label_to_tag(int(pred_label)) for pred_label, true_label in zip(pred[1:-1], true[att_mask == 1][1:-1])
                               if true_label != self._subword_label])
         return (true_tags, pred_tags)
+    
+    def get_optim_grouped_params(self):
+        no_decay = ('bias', 'gamma', 'beta')
+        optimizer_grouped_parameters = [
+            {'params': [p for n, p in self.bert_model.named_parameters() if 'transitions' not in n and (not any(nd in n for nd in no_decay))],
+             'weight_decay': self.hparams['weight-decay']},
+            {'params': [p for n, p in self.bert_model.named_parameters() if 'transitions' not in n and any((nd in n) for nd in no_decay)],
+             'weight_decay': 0.0},
+            {'params': [p for n, p in self.bert_model.named_parameters() if 'transitions' in n],
+             'weight_decay': 0.0,
+             'lr': self.hparams['crf-learning-rate']}
+        ]
+        return optimizer_grouped_parameters
         

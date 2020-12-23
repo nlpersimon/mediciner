@@ -23,6 +23,7 @@ Options:
     --lr-scheduler=<str>                    learning rate scheduler [default: ]
     --base-lr=<float>                       base learning rate for cyclic lr scheduler [default: ]
     --crf                                   use CRF layer or not
+    --crf-lr=<float>                        learning rate for CRF layer [default: ]
     --seed=<int>                            random seed to sample typos and sentences [default: 1]
 """
 from docopt import docopt
@@ -51,7 +52,8 @@ def collect_hparams(args: dict) -> dict:
         'learning-rate': float(args['--learning-rate']),
         'weight-decay': float(args['--weight-decay']),
         'lr-scheduler': str(args['--lr-scheduler']),
-        'CRF': True if args['--crf'] else False
+        'CRF': True if args['--crf'] else False,
+        'crf-learning-rate': float(args['--crf-lr']) if args['--crf-lr'] else float(args['--learning-rate'])
     }
     if args['--base-lr']:
         hparams['base-lr'] = float(args['--base-lr'])
