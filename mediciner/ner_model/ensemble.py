@@ -20,7 +20,8 @@ class BertEnsemble(nn.Module):
     def __init__(self,
                  bert_1_path: str,
                  bert_2_path: str,
-                 num_labels: int) -> None:
+                 num_labels: int,
+                 dropout_prob: float = 0.0) -> None:
         super().__init__()
         self.bert_1_path = os.path.abspath(bert_1_path)
         self.bert_2_path = os.path.abspath(bert_2_path)
@@ -35,6 +36,7 @@ class BertEnsemble(nn.Module):
         self.bert_1 = bert_1.eval()
         self.bert_2 = bert_2.eval()
         self.num_labels = num_labels
+        self.dropout = nn.Dropout(dropout_prob)
         self.classifier = nn.Linear(bert_1.config.hidden_size + bert_2.config.hidden_size,
                                     num_labels)
         self._freeze_bert()
@@ -59,7 +61,7 @@ class BertEnsemble(nn.Module):
                 attention_mask: torch.Tensor) -> Dict[str, torch.Tensor]:
         h_1 = get_last_hidden_states(self.bert_1, input_ids, attention_mask)
         h_2 = get_last_hidden_states(self.bert_2, input_ids, attention_mask)
-        logits = self.classifier(torch.cat([h_1, h_2], dim=-1))
+        logits = self.classifier(self.dropout(torch.cat([h_1, h_2], dim=-1)))
         outputs = {
             'logits': logits
         }
