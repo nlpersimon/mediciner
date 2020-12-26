@@ -53,30 +53,6 @@ def adjust_pred_tags(pred_tags: List[str]) -> List[str]:
         adjusted_tags.append(tag)
     return adjusted_tags
 
-"""def get_entities(tags: List[str], strict=False) -> List[Tuple[str, int, int]]:
-    entities, type_stack = [], []
-    start, end = 0, 0
-    b_exist = False
-    tags = tags + ['O']
-    for idx, tag in enumerate(tags):
-        if (tag == 'O' or tag[0] == 'B'):
-            if type_stack:
-                type_count = Counter(type_stack)
-                ent_type = max(type_count, key=lambda t: type_count[t])
-                entities.append((ent_type, start, end))
-                type_stack, b_exist = [], False
-            next_idx = min(idx + 1, len(tags) - 1)
-            if tag == 'O' and tags[next_idx][0] == 'I':
-                start, end = idx + 1, idx + 1
-        if tag[0] == 'B':
-            start, end = idx, idx
-            b_exist = True
-            type_stack.append(tag[2:])
-        elif tag[0] == 'I' and (b_exist or not strict):
-            end = idx
-            type_stack.append(tag[2:])
-    return entities"""
-
 def get_entities(tags: List[str], strict=False) -> List[Tuple[str, int, int]]:
     entities, type_stack = [], []
     start, end = 0, 0
