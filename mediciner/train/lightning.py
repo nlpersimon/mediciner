@@ -3,6 +3,7 @@ from transformers import BertForTokenClassification, AdamW, get_linear_schedule_
 from torch_optimizer import RAdam
 import torch
 import torch.nn.functional as F
+import os
 from adabelief_pytorch import AdaBelief
 from seqeval.metrics import classification_report
 from seqeval.scheme import IOB2
@@ -147,7 +148,14 @@ class BertLightning(pl.LightningModule):
                                                     scheme=IOB2,
                                                     output_dict=True)
         return entity_type_metrics
-
+    
+    def training_epoch_end(self, training_step_outputs):
+        epoch_no = self.current_epoch + 1
+        if self.hparams['save-per-k-eps'] and (epoch_no % self.hparams['save-per-k-eps'] == 0):
+            _, model_name = os.path.split(self.hparams['path-to-saving-model'])
+            path_to_saving = os.path.join(self.hparams["path-to-saving-model"], f'intermediate-models/{model_name}_imep{epoch_no}')
+            self.bert_model.save_pretrained(path_to_saving)
+        return
 
 class BertWithCRFLightning(BertLightning):
     def __init__(self, bert_crf: BertWithCRF, hparams: dict, use_logger: bool = False) -> None:
