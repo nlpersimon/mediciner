@@ -22,6 +22,9 @@ Options:
     --learning-rate=<float>                 learning rate for optimizer [default: 3e-5]
     --weight-decay=<float>                  weight decay rate for updating parameters [default: 0.0]
     --lr-scheduler=<str>                    learning rate scheduler [default: ]
+    --grad-clip-val=<float>                 value to do gradient clipping [default: 0.0]
+    --save-per-k-eps=<int>                  save the model per k epochs [default: 0]
+    --dropout-prob=<float>                  dropout probability [default: 0.0]
     --seed=<int>                            random seed to sample typos and sentences [default: 1]
 """
 from docopt import docopt
@@ -48,7 +51,10 @@ def collect_hparams(args: dict) -> dict:
         'optimizer': str(args['--optimizer']),
         'learning-rate': float(args['--learning-rate']),
         'weight-decay': float(args['--weight-decay']),
-        'lr-scheduler': str(args['--lr-scheduler'])
+        'lr-scheduler': str(args['--lr-scheduler']),
+        'grad-clip-val': float(args['--grad-clip-val']),
+        'save-per-k-eps': int(args['--save-per-k-eps']),
+        'dropout-prob': float(args['--dropout-prob'])
     }
     return hparams
 
@@ -71,7 +77,8 @@ def main():
 
     ensemble_model = BertEnsemble(str(args['--path-to-bert1']),
                                   str(args['--path-to-bert2']),
-                                  len(TAG_TO_LABEL))
+                                  len(TAG_TO_LABEL),
+                                  float(args['--dropout-prob']))
     hparams = collect_hparams(args)
     accum_steps = int(int(args['--ideal-batch-size']) / int(args['--actual-batch-size']))
     hparams['n-iters-an-epoch'] = int(len(train_dataloader) / accum_steps)

@@ -35,7 +35,7 @@ def prepare_trainer(args: dict) -> pl.Trainer:
                         #limit_val_batches=0.0,
                         gpus=gpu_usage,
                         accumulate_grad_batches=accum_steps,
-                        #gradient_clip_val=float(args['--clip-grad']),
+                        gradient_clip_val=float(args['--grad-clip-val']),
                         deterministic=True,
                         terminate_on_nan=True,
                         logger=logger,

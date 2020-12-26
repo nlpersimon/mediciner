@@ -24,6 +24,8 @@ Options:
     --base-lr=<float>                       base learning rate for cyclic lr scheduler [default: ]
     --crf                                   use CRF layer or not
     --crf-lr=<float>                        learning rate for CRF layer [default: ]
+    --save-per-k-eps=<int>                  save the model per k epochs [default: 0]
+    --grad-clip-val=<float>                 value to do gradient clipping [default: 0.0]
     --seed=<int>                            random seed to sample typos and sentences [default: 1]
 """
 from docopt import docopt
@@ -53,7 +55,10 @@ def collect_hparams(args: dict) -> dict:
         'weight-decay': float(args['--weight-decay']),
         'lr-scheduler': str(args['--lr-scheduler']),
         'CRF': True if args['--crf'] else False,
-        'crf-learning-rate': float(args['--crf-lr']) if args['--crf-lr'] else float(args['--learning-rate'])
+        'crf-learning-rate': float(args['--crf-lr']) if args['--crf-lr'] else float(args['--learning-rate']),
+        'path-to-saving-model': str(args['--path-to-saving-model']),
+        'save-per-k-eps': int(args['--save-per-k-eps']),
+        'grad-clip-val': float(args['--grad-clip-val'])
     }
     if args['--base-lr']:
         hparams['base-lr'] = float(args['--base-lr'])
