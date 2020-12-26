@@ -144,3 +144,6 @@ model/
 lightning_logs/
 garbage/
 predictions/
+trash_predictions/
+outputs/
+final_predictins/
