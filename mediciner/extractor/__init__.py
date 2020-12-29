@@ -1,1 +1,1 @@
-from .extractors import Entity, BaseExtractor, BertExtractor, BertWithCRFExtractor
+from .extractors import Entity, BaseExtractor, BertExtractor, BertWithCRFExtractor, RuleExtractor
