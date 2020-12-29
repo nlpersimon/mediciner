@@ -14,9 +14,23 @@ pip install -r requirements.txt
 # Scripts
 目前在 bin/ 底下有兩個 python script:
  - train.py: 訓練模型並儲存。
+ - train_ensemble.py: 訓練 ensemble 模型並儲存
  - build_entity_table.py: 用訓練好的模型產生給定的文本的 entity table，主要是用來產生測試資料的 entity table，以便上傳至評分系統。
 
- 使用範例請參考 uni-sent-bert.sh 以及 build_entity_table.sh。
+ 使用範例請參考 multi-sents-bert-full.sh 以及 build_entity_table.sh。
+
+ # Replicate Final Results
+ 執行以下的指令復現我們在比賽中的最後上傳答案
+ ```
+ sh generate_data.sh
+ sh further_pretrain.sh
+ sh multi-sents-bert-full.sh
+ sh multi-sents-roberta-full.sh
+ sh multi-sents-ensemble-full.sh
+ sh multi-sents-roberta-large-full.sh
+ sh build_entity_table.sh
+ python aggregate_results.py
+ ```
 
 # Main Modules
 整個系統由以下三個主要的 module 構成：
