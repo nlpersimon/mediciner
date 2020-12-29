@@ -139,7 +139,6 @@ cython_debug/
 
 notebooks/
 data/
-vocab/
 model/
 lightning_logs/
 garbage/
@@ -147,3 +146,7 @@ predictions/
 trash_predictions/
 outputs/
 final_predictins/
+experiment_scripts/
+*.tsv
+model-bak/
+data-bak/
