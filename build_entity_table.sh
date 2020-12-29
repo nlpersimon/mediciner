@@ -5,6 +5,8 @@ if [ ! -d "lastday_predictions" ]; then
     mkdir -p "lastday_predictions"
 fi
 
+
+
 python bin/build_entity_table.py --path-to-corpus-dir='data/dialogue_lined/test' \
                                  --path-to-vocab='vocab/chinese-roberta-wwm-ext-large-vocab.txt' \
                                  --path-to-model-dir='model/multi-sents-roberta-wwm-ext-large-lr1e-5-ep120' \
@@ -40,4 +42,13 @@ python bin/build_entity_table.py --path-to-corpus-dir='data/dialogue_lined/test'
                                  --mode='multi-sents' \
                                  --batch-size=8 \
                                  --ensemble \
+                                 --max-input-len=510
+
+python bin/build_entity_table.py --path-to-corpus-dir='data/dialogue_lined/test' \
+                                 --path-to-vocab='vocab/bert-base-chinese-vocab.txt' \
+                                 --path-to-model-dir='empty' \
+                                 --path-to-output='lastday_predictions/rule-based.tsv' \
+                                 --mode='multi-sents' \
+                                 --batch-size=32 \
+                                 --rule \
                                  --max-input-len=510
